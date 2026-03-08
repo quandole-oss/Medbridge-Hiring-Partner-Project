@@ -4,31 +4,46 @@ import time
 from collections import OrderedDict
 from typing import Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import verify_api_key, verify_consent
 from app.api.schemas import (
+    AdherenceResponse,
+    AdjustExerciseRequest,
+    AdjustExerciseResponse,
     ChatRequest,
     ChatResponse,
     EventTriggerRequest,
     EventTriggerResponse,
+    ExerciseCompleteRequest,
+    ExerciseCompleteResponse,
+    ExerciseProgramResponse,
+    ExerciseResponse,
     HealthResponse,
     PatientStatusResponse,
 )
 from app.db.repository import (
     get_active_goal,
+    get_adherence_stats,
+    get_exercise_by_id,
+    get_exercise_completions,
     get_patient,
+    get_patient_exercises,
     grant_consent,
     log_audit_event,
+    mark_exercise_complete,
+    replace_exercise,
+    unmark_exercise_complete,
     update_patient_last_message,
     update_patient_phase,
 )
+from app.db.seed import seed_exercises
 from app.db.session import get_db_session
 from app.graph.parent import compiled_graph
 from app.graph.state import Phase
-from app.services.llm import FALLBACK_MESSAGE
+from app.services.llm import FALLBACK_MESSAGE, get_exercise_adjustment
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +67,10 @@ def _clean_idempotency_cache() -> None:
 def _calculate_tone(enrollment_date: Optional[datetime.datetime]) -> str:
     if not enrollment_date:
         return "general"
-    days = (datetime.datetime.now(datetime.timezone.utc) - enrollment_date).days
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if enrollment_date.tzinfo is None:
+        enrollment_date = enrollment_date.replace(tzinfo=datetime.timezone.utc)
+    days = (now - enrollment_date).days
     if days == 2:
         return "celebration"
     elif days == 5:
@@ -181,6 +199,7 @@ async def trigger_event(
                 message="Consent already granted",
             )
         patient = await grant_consent(session, request.patient_id)
+        await seed_exercises(session, request.patient_id)
         await log_audit_event(
             session, request.patient_id, "consent_granted", {}
         )
@@ -238,4 +257,218 @@ async def patient_status(
         last_message_at=(
             patient.last_message_at.isoformat() if patient.last_message_at else None
         ),
+        enrollment_date=(
+            patient.enrollment_date.isoformat() if patient.enrollment_date else None
+        ),
+    )
+
+
+@router.get(
+    "/patients/{patient_id}/exercises",
+    response_model=ExerciseProgramResponse,
+)
+async def get_exercises(
+    patient_id: str,
+    day: Optional[int] = Query(None, ge=1, le=7),
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    exercises = await get_patient_exercises(session, patient_id, day=day)
+    today = datetime.date.today()
+    completions = await get_exercise_completions(session, patient_id, today)
+    completion_map = {c.exercise_id: c for c in completions}
+
+    exercise_responses = []
+    for e in exercises:
+        comp = completion_map.get(e.exercise_id)
+        exercise_responses.append(
+            ExerciseResponse(
+                exercise_id=e.exercise_id,
+                name=e.name,
+                description=e.description,
+                body_part=e.body_part,
+                sets=e.sets,
+                reps=e.reps,
+                hold_seconds=e.hold_seconds,
+                day_number=e.day_number,
+                sort_order=e.sort_order,
+                is_completed=comp is not None,
+                sets_completed=comp.sets_completed if comp else 0,
+                difficulty=comp.difficulty if comp else None,
+                feedback=comp.feedback if comp else None,
+            )
+        )
+
+    return ExerciseProgramResponse(
+        patient_id=patient_id,
+        day=day,
+        exercises=exercise_responses,
+    )
+
+
+@router.post(
+    "/patients/{patient_id}/exercises/complete",
+    response_model=ExerciseCompleteResponse,
+)
+async def toggle_exercise_complete(
+    patient_id: str,
+    request: ExerciseCompleteRequest,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    if request.date:
+        target_date = datetime.date.fromisoformat(request.date)
+    else:
+        target_date = datetime.date.today()
+
+    # Get exercise to know total sets
+    exercise = await get_exercise_by_id(session, request.exercise_id)
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    total_sets = exercise.sets
+
+    # If sets_completed is explicitly 0, remove completion (undo)
+    if request.sets_completed is not None and request.sets_completed == 0:
+        await unmark_exercise_complete(
+            session, patient_id, request.exercise_id, target_date
+        )
+        return ExerciseCompleteResponse(
+            patient_id=patient_id,
+            exercise_id=request.exercise_id,
+            completed=False,
+            date=target_date.isoformat(),
+            sets_completed=0,
+            total_sets=total_sets,
+        )
+
+    # Upsert completion with granular fields
+    completion = await mark_exercise_complete(
+        session,
+        patient_id,
+        request.exercise_id,
+        target_date,
+        sets_completed=request.sets_completed,
+        difficulty=request.difficulty,
+        feedback=request.feedback,
+    )
+
+    return ExerciseCompleteResponse(
+        patient_id=patient_id,
+        exercise_id=request.exercise_id,
+        completed=True,
+        date=target_date.isoformat(),
+        sets_completed=completion.sets_completed,
+        total_sets=total_sets,
+    )
+
+
+@router.get(
+    "/patients/{patient_id}/adherence",
+    response_model=AdherenceResponse,
+)
+async def get_adherence(
+    patient_id: str,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    stats = await get_adherence_stats(session, patient_id)
+    return AdherenceResponse(patient_id=patient_id, **stats)
+
+
+@router.post(
+    "/patients/{patient_id}/exercises/{exercise_id}/adjust",
+    response_model=AdjustExerciseResponse,
+)
+async def adjust_exercise(
+    patient_id: str,
+    exercise_id: int,
+    request: AdjustExerciseRequest,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    exercise = await get_exercise_by_id(session, exercise_id)
+    if not exercise or exercise.patient_id != patient_id:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    if request.difficulty not in ("too_easy", "too_hard"):
+        raise HTTPException(
+            status_code=422, detail="difficulty must be 'too_easy' or 'too_hard'"
+        )
+
+    adjustment = await get_exercise_adjustment(
+        exercise=exercise,
+        difficulty=request.difficulty,
+        feedback=request.feedback,
+    )
+
+    new_exercise = await replace_exercise(
+        session,
+        patient_id=patient_id,
+        old_exercise_id=exercise_id,
+        name=adjustment["name"],
+        description=adjustment["description"],
+        body_part=adjustment["body_part"],
+        sets=adjustment["sets"],
+        reps=adjustment["reps"],
+        hold_seconds=adjustment.get("hold_seconds"),
+    )
+
+    original_response = ExerciseResponse(
+        exercise_id=exercise.exercise_id,
+        name=exercise.name,
+        description=exercise.description,
+        body_part=exercise.body_part,
+        sets=exercise.sets,
+        reps=exercise.reps,
+        hold_seconds=exercise.hold_seconds,
+        day_number=exercise.day_number,
+        sort_order=exercise.sort_order,
+        is_completed=False,
+    )
+
+    new_response = ExerciseResponse(
+        exercise_id=new_exercise.exercise_id,
+        name=new_exercise.name,
+        description=new_exercise.description,
+        body_part=new_exercise.body_part,
+        sets=new_exercise.sets,
+        reps=new_exercise.reps,
+        hold_seconds=new_exercise.hold_seconds,
+        day_number=new_exercise.day_number,
+        sort_order=new_exercise.sort_order,
+        is_completed=False,
+    )
+
+    await log_audit_event(
+        session,
+        patient_id,
+        "exercise_adjusted",
+        {
+            "old_exercise_id": exercise_id,
+            "new_exercise_id": new_exercise.exercise_id,
+            "difficulty": request.difficulty,
+            "reasoning": adjustment["reasoning"],
+        },
+    )
+
+    return AdjustExerciseResponse(
+        original_exercise=original_response,
+        new_exercise=new_response,
+        reasoning=adjustment["reasoning"],
     )

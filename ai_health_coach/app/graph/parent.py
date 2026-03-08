@@ -102,7 +102,7 @@ def build_graph() -> StateGraph:
     graph.add_node("check_goal_extraction", check_goal_extraction)
 
     # START -> phase router
-    graph.add_conditional_edges(START, route_by_phase, PHASE_ROUTES)
+    graph.add_conditional_edges(START, route_by_phase)
 
     # Each subgraph -> safety_check
     graph.add_edge("onboarding_node", "safety_check")

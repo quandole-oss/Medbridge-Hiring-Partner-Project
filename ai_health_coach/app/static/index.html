@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1B365D">
+  <title>MedBridge AI Health Coach</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --navy: #1B365D;
+      --gold: #F5A623;
+      --gold-hover: #E09515;
+      --gold-light: #FFF8E7;
+      --bg: #F7F6F3;
+      --text: #2D2D2D;
+      --text-muted: #6B6B6B;
+      --border: #E8E5DE;
+      --error: #C53030;
+      --success: #2D8A4E;
+      --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-serif: Georgia, 'Times New Roman', serif;
+      --tab-height: 56px;
+      --header-height: 56px;
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--text);
+      background: var(--bg);
+      height: 100dvh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    button, input, textarea { font-family: inherit; font-size: inherit; }
+
+    /* ─── Welcome Screen ─── */
+
+    .welcome-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 24px;
+      background: linear-gradient(160deg, #F7F6F3 0%, #EDE9E0 100%);
+    }
+
+    .welcome-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 1px 3px rgba(27,54,93,0.06), 0 8px 24px rgba(27,54,93,0.08);
+    }
+
+    .welcome-card h1 {
+      font-family: var(--font-serif);
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+
+    .welcome-card .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 32px;
+    }
+
+    .form-group { margin-bottom: 24px; }
+    .form-group label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      color: var(--text); margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 16px; color: var(--text);
+      background: #fff; transition: border-color 0.15s ease;
+      touch-action: manipulation;
+    }
+    .form-group input::placeholder { color: #B0ADA6; }
+    .form-group input:focus { border-color: var(--gold); }
+
+    .btn-primary {
+      width: 100%; padding: 14px 24px; background: var(--gold); color: #fff;
+      font-size: 1rem; font-weight: 600; border: none; border-radius: 10px;
+      cursor: pointer; transition: background-color 0.15s ease;
+      touch-action: manipulation; display: flex; align-items: center;
+      justify-content: center; gap: 8px;
+    }
+    .btn-primary:hover { background: var(--gold-hover); }
+    .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+    .btn-spinner {
+      display: none; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    .btn-primary.loading .btn-spinner { display: block; }
+    .btn-primary.loading .btn-text { display: none; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .consent-notice {
+      margin-top: 16px; font-size: 0.8rem; color: var(--text-muted);
+      line-height: 1.5; text-align: center;
+    }
+    .error-text {
+      color: var(--error); font-size: 0.85rem; margin-top: 8px; display: none;
+    }
+    .error-text.visible { display: block; }
+
+    /* ─── App Shell ─── */
+
+    .app-shell {
+      display: none;
+      flex-direction: column;
+      height: 100dvh;
+      height: 100vh;
+    }
+
+    .app-shell.active { display: flex; }
+
+    .app-header {
+      position: sticky; top: 0; z-index: 10;
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 14px 20px; display: flex; align-items: center;
+      justify-content: space-between; gap: 12px;
+      height: var(--header-height); flex-shrink: 0;
+    }
+    .app-header h2 {
+      font-family: var(--font-serif); font-size: 1.1rem;
+      font-weight: 700; color: var(--navy);
+    }
+
+    .phase-badge {
+      font-size: 0.75rem; font-weight: 600; padding: 4px 10px;
+      border-radius: 999px; white-space: nowrap; text-transform: capitalize;
+    }
+    .phase-badge[data-phase="onboarding"] { background: #E8F4FD; color: #1A6FB5; }
+    .phase-badge[data-phase="active"] { background: #E6F5EC; color: var(--success); }
+    .phase-badge[data-phase="dormant"] { background: #FDE8E8; color: var(--error); }
+    .phase-badge[data-phase="re_engaging"] { background: #FEF3CD; color: #856404; }
+    .phase-badge[data-phase="pending"] { background: #F0EDE8; color: var(--text-muted); }
+
+    /* ─── View Container ─── */
+
+    .view-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .view {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+    }
+    .view.active { display: flex; }
+
+    /* ─── Tab Bar (Bottom - Mobile) ─── */
+
+    .tab-bar {
+      display: flex;
+      background: #fff;
+      border-top: 1px solid var(--border);
+      height: var(--tab-height);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .tab-btn {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); transition: color 0.15s ease;
+      padding: 6px 0; position: relative;
+    }
+    .tab-btn svg { width: 22px; height: 22px; }
+    .tab-btn .tab-label { font-size: 0.65rem; font-weight: 600; }
+    .tab-btn.active { color: var(--gold); }
+    .tab-btn.active::before {
+      content: ''; position: absolute; top: 0; left: 25%; right: 25%;
+      height: 2px; background: var(--gold); border-radius: 0 0 2px 2px;
+    }
+
+    /* ─── Chat View ─── */
+
+    .goal-banner {
+      display: none; background: var(--gold-light);
+      border-bottom: 2px solid var(--gold); padding: 12px 20px;
+      align-items: flex-start; gap: 10px; flex-shrink: 0;
+    }
+    .goal-banner.visible { display: flex; animation: slideDown 0.3s ease-out; }
+    .goal-banner .goal-icon {
+      flex-shrink: 0; width: 24px; height: 24px; background: var(--gold);
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; color: #fff; font-size: 0.75rem;
+      font-weight: 700; margin-top: 1px;
+    }
+    .goal-banner .goal-content { flex: 1; min-width: 0; }
+    .goal-banner .goal-label {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--gold-hover); margin-bottom: 2px;
+    }
+    .goal-banner .goal-text {
+      font-size: 0.9rem; color: var(--text); line-height: 1.4;
+      overflow-wrap: break-word; word-break: break-word;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes goalPulse {
+      0%, 100% { border-color: var(--gold); }
+      50% { border-color: #F5C563; }
+    }
+    .goal-banner.pulse {
+      animation: slideDown 0.3s ease-out, goalPulse 1.5s ease-in-out 0.3s 2;
+    }
+
+    .messages-area {
+      flex: 1; overflow-y: auto; overscroll-behavior: contain;
+      padding: 20px; display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .message {
+      max-width: 80%; padding: 12px 16px; border-radius: 16px;
+      font-size: 0.95rem; line-height: 1.55;
+      overflow-wrap: break-word; word-break: break-word;
+      animation: messageIn 0.2s ease-out;
+    }
+    @keyframes messageIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .message.coach {
+      align-self: flex-start; background: var(--gold-light);
+      color: var(--text); border-bottom-left-radius: 4px;
+    }
+    .message.patient {
+      align-self: flex-end; background: var(--navy);
+      color: #fff; border-bottom-right-radius: 4px;
+    }
+
+    .typing-indicator {
+      display: none; align-self: flex-start; padding: 12px 20px;
+      background: var(--gold-light); border-radius: 16px;
+      border-bottom-left-radius: 4px; gap: 4px; align-items: center;
+    }
+    .typing-indicator.visible { display: flex; }
+
+    .typing-dot {
+      width: 7px; height: 7px; background: #C9B88C;
+      border-radius: 50%; animation: bounce 1.2s ease-in-out infinite;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    .input-area {
+      border-top: 1px solid var(--border); background: #fff;
+      padding: 12px 16px; display: flex; align-items: flex-end;
+      gap: 10px; flex-shrink: 0;
+    }
+    .input-area textarea {
+      flex: 1; resize: none; border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 10px 14px; font-size: 16px;
+      line-height: 1.45; color: var(--text); background: var(--bg);
+      max-height: 120px; overflow-y: auto; transition: border-color 0.15s ease;
+      touch-action: manipulation;
+    }
+    .input-area textarea::placeholder { color: #B0ADA6; }
+    .input-area textarea:focus { border-color: var(--gold); background: #fff; }
+
+    .send-btn {
+      flex-shrink: 0; width: 42px; height: 42px; border: none;
+      border-radius: 50%; background: var(--gold); color: #fff;
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; transition: background-color 0.15s ease;
+      touch-action: manipulation;
+    }
+    .send-btn:hover { background: var(--gold-hover); }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .send-btn svg { width: 18px; height: 18px; }
+    .send-btn .send-spinner {
+      display: none; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    .send-btn.loading svg { display: none; }
+    .send-btn.loading .send-spinner { display: block; }
+
+    /* ─── Exercises View ─── */
+
+    .exercises-view { padding: 0; }
+
+    .day-selector {
+      display: flex; gap: 8px; padding: 16px 20px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      flex-shrink: 0; background: #fff; border-bottom: 1px solid var(--border);
+    }
+    .day-selector::-webkit-scrollbar { display: none; }
+
+    .day-pill {
+      flex-shrink: 0; min-width: 52px; padding: 8px 14px;
+      border-radius: 20px; border: 1.5px solid var(--border);
+      background: #fff; cursor: pointer; text-align: center;
+      font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+      transition: all 0.15s ease;
+    }
+    .day-pill .day-num { font-size: 1rem; display: block; color: var(--text); }
+    .day-pill.active {
+      background: var(--gold); border-color: var(--gold); color: #fff;
+    }
+    .day-pill.active .day-num { color: #fff; }
+    .day-pill.disabled {
+      opacity: 0.4; cursor: not-allowed; pointer-events: none;
+    }
+
+    .exercise-list { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+
+    .exercise-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      transition: box-shadow 0.15s ease, border-color 0.2s ease;
+      border-left: 4px solid transparent;
+      overflow: hidden;
+    }
+    .exercise-card.all-sets-done { border-left-color: var(--success); }
+    .exercise-card.expanded { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+    .exercise-card-header {
+      display: flex; gap: 12px; align-items: center;
+      padding: 14px 16px; cursor: pointer;
+    }
+
+    .exercise-svg-small {
+      flex-shrink: 0; width: 48px; height: 48px;
+    }
+    .exercise-svg-small svg { width: 48px; height: 48px; }
+    .exercise-svg-small svg * { animation-play-state: paused; }
+
+    .exercise-header-info { flex: 1; min-width: 0; }
+    .exercise-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 3px; }
+    .exercise-header-meta {
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+      font-size: 0.8rem; color: var(--text-muted);
+    }
+    .exercise-badge {
+      font-size: 0.72rem; font-weight: 600; padding: 3px 8px;
+      border-radius: 6px; background: #F0EDE8; color: var(--text-muted);
+    }
+    .exercise-badge.body-part { background: #E8F4FD; color: #1A6FB5; }
+
+    .exercise-progress-dots {
+      display: flex; gap: 4px; align-items: center; margin-top: 4px;
+    }
+    .progress-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid var(--border); background: #fff;
+      transition: all 0.2s ease;
+    }
+    .progress-dot.filled { background: var(--gold); border-color: var(--gold); }
+    .progress-dot-label {
+      font-size: 0.72rem; color: var(--text-muted); margin-left: 4px;
+    }
+
+    .exercise-chevron {
+      flex-shrink: 0; width: 20px; height: 20px; color: var(--text-muted);
+      transition: transform 0.2s ease;
+    }
+    .exercise-card.expanded .exercise-chevron { transform: rotate(180deg); }
+
+    /* Expanded content */
+    .exercise-expand {
+      display: none; padding: 0 16px 16px;
+    }
+    .exercise-card.expanded .exercise-expand { display: block; }
+
+    .exercise-svg-large {
+      width: 200px; height: 200px; margin: 0 auto 12px;
+      display: block;
+    }
+    .exercise-svg-large svg { width: 200px; height: 200px; display: block; }
+    .exercise-card.expanded .exercise-svg-large svg * { animation-play-state: running; }
+
+    .exercise-desc {
+      font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;
+    }
+
+    .exercise-divider {
+      height: 1px; background: var(--border); margin: 12px 0;
+    }
+
+    /* Per-set checkboxes */
+    .set-checkboxes {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+    }
+    .set-checkbox {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .set-checkbox-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+    .set-check-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 2.5px solid var(--border); background: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .set-check-btn svg { width: 16px; height: 16px; opacity: 0; color: #fff; transition: opacity 0.15s ease; }
+    .set-check-btn.checked {
+      background: var(--gold); border-color: var(--gold);
+    }
+    .set-check-btn.checked svg { opacity: 1; }
+
+    /* Difficulty selector */
+    .difficulty-section { margin-top: 4px; }
+    .difficulty-label {
+      font-size: 0.8rem; font-weight: 600; color: var(--text); margin-bottom: 8px;
+    }
+    .difficulty-pills { display: flex; gap: 8px; }
+    .difficulty-pill {
+      flex: 1; padding: 8px 12px; border-radius: 20px; border: 1.5px solid var(--border);
+      background: #fff; cursor: pointer; text-align: center;
+      font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+      transition: all 0.15s ease;
+    }
+    .difficulty-pill:hover { border-color: #ccc; }
+    .difficulty-pill.active-easy { background: #E8F4FD; border-color: #1A6FB5; color: #1A6FB5; }
+    .difficulty-pill.active-right { background: #E6F5EC; border-color: var(--success); color: var(--success); }
+    .difficulty-pill.active-hard { background: #FEF3CD; border-color: #E09515; color: #E09515; }
+
+    /* Feedback textarea */
+    .feedback-section {
+      display: none; margin-top: 12px;
+    }
+    .feedback-section.visible { display: block; }
+    .feedback-textarea {
+      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 0.85rem; resize: none; min-height: 60px;
+      color: var(--text); background: var(--bg); line-height: 1.4;
+    }
+    .feedback-textarea:focus { border-color: var(--gold); background: #fff; }
+
+    .btn-adjust {
+      margin-top: 10px; width: 100%; padding: 10px 16px;
+      background: var(--navy); color: #fff; font-size: 0.85rem; font-weight: 600;
+      border: none; border-radius: 10px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background-color 0.15s ease;
+    }
+    .btn-adjust:hover { background: #15294A; }
+    .btn-adjust:disabled { opacity: 0.7; cursor: not-allowed; }
+    .btn-adjust .adjust-spinner {
+      display: none; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+      border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    .btn-adjust.loading .adjust-spinner { display: block; }
+    .btn-adjust.loading .adjust-text { display: none; }
+
+    /* Adjustment result */
+    .adjust-result {
+      display: none; margin-top: 12px; padding: 12px;
+      background: #E6F5EC; border-radius: 10px; border: 1px solid #B7DFCA;
+    }
+    .adjust-result.visible { display: block; animation: messageIn 0.3s ease-out; }
+    .adjust-result-title {
+      font-size: 0.8rem; font-weight: 700; color: var(--success); margin-bottom: 6px;
+    }
+    .adjust-result-text {
+      font-size: 0.85rem; color: var(--text); line-height: 1.4;
+    }
+
+    /* SVG animations — all limb animations use rotation at the joint
+       so that limbs stay connected to the body */
+    @keyframes exercise-motion {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-3px); }
+    }
+    @keyframes foot-flex {
+      0% { transform: rotate(10deg); }
+      100% { transform: rotate(-20deg); }
+    }
+    @keyframes leg-lift {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(-30deg); }
+    }
+    @keyframes heel-bend {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(-40deg); }
+    }
+    @keyframes leg-side {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(-25deg); }
+    }
+    @keyframes squat-down {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(6px); }
+    }
+    @keyframes step-motion {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-8px); }
+    }
+    @keyframes stretch-reach {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(15deg); }
+    }
+
+    .chat-fab {
+      position: fixed; bottom: calc(var(--tab-height) + 20px + env(safe-area-inset-bottom, 0px));
+      right: 20px; width: 52px; height: 52px; border-radius: 50%;
+      background: var(--navy); color: #fff; border: none; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(27,54,93,0.3); display: none;
+      align-items: center; justify-content: center;
+      transition: transform 0.15s ease; z-index: 20;
+    }
+    .chat-fab:hover { transform: scale(1.05); }
+    .chat-fab svg { width: 22px; height: 22px; }
+    .chat-fab.visible { display: flex; }
+
+    /* ─── Chat Drawer ─── */
+
+    .drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      z-index: 50; opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .chat-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: 320px; max-width: 85vw; background: #fff;
+      z-index: 51; display: flex; flex-direction: column;
+      transform: translateX(100%); transition: transform 0.25s ease;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.1);
+    }
+    .chat-drawer.open { transform: translateX(0); }
+
+    .drawer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .drawer-header h3 {
+      font-family: var(--font-serif); font-size: 1rem; color: var(--navy);
+    }
+    .drawer-close {
+      background: none; border: none; cursor: pointer; padding: 4px;
+      color: var(--text-muted); display: flex;
+    }
+    .drawer-close svg { width: 20px; height: 20px; }
+
+    .drawer-messages {
+      flex: 1; overflow-y: auto; padding: 16px; display: flex;
+      flex-direction: column; gap: 10px;
+    }
+
+    .drawer-input {
+      border-top: 1px solid var(--border); padding: 10px 12px;
+      display: flex; align-items: flex-end; gap: 8px; flex-shrink: 0;
+    }
+    .drawer-input textarea {
+      flex: 1; resize: none; border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 8px 12px; font-size: 15px;
+      line-height: 1.4; color: var(--text); background: var(--bg);
+      max-height: 80px; overflow-y: auto;
+    }
+    .drawer-input textarea:focus { border-color: var(--gold); background: #fff; }
+    .drawer-input .send-btn { width: 36px; height: 36px; }
+    .drawer-input .send-btn svg { width: 15px; height: 15px; }
+
+    /* ─── Home View ─── */
+
+    .home-view { padding: 20px; gap: 16px; overflow-y: auto; }
+
+    .home-greeting {
+      padding: 4px 0 8px;
+    }
+    .home-greeting h2 {
+      font-family: var(--font-serif); font-size: 1.4rem;
+      font-weight: 700; color: var(--navy); margin-bottom: 4px;
+    }
+    .home-greeting .home-program {
+      font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;
+    }
+    .home-streak {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.8rem; font-weight: 600; color: var(--gold-hover);
+      background: var(--gold-light); padding: 4px 10px; border-radius: 12px;
+    }
+
+    .home-card {
+      background: #fff; border-radius: 12px; padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      cursor: pointer; transition: box-shadow 0.15s ease;
+    }
+    .home-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .home-card-label {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; margin-bottom: 8px;
+    }
+
+    /* Goal card */
+    .home-goal-card { border-left: 4px solid var(--gold); }
+    .home-goal-card .home-card-label { color: var(--gold-hover); }
+    .home-goal-card .home-goal-text {
+      font-size: 1.05rem; line-height: 1.4; color: var(--text); font-weight: 500;
+    }
+    .home-goal-card .home-goal-cta {
+      font-size: 0.95rem; color: var(--gold); font-weight: 600;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .home-goal-card .home-goal-cta svg { width: 16px; height: 16px; }
+
+    /* Action plan card */
+    .home-action-card { border-left: 4px solid var(--navy); }
+    .home-action-card .home-card-label { color: var(--navy); }
+    .home-action-summary {
+      font-size: 0.95rem; color: var(--text); margin-bottom: 12px;
+    }
+    .home-action-summary strong { font-weight: 700; }
+    .home-progress-track {
+      height: 8px; background: var(--border); border-radius: 4px;
+      overflow: hidden; margin-bottom: 8px;
+    }
+    .home-progress-fill {
+      height: 100%; background: var(--gold); border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+    .home-progress-label {
+      font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;
+    }
+    .btn-start-session {
+      width: 100%; padding: 12px 20px; background: var(--navy); color: #fff;
+      font-size: 0.95rem; font-weight: 600; border: none; border-radius: 10px;
+      cursor: pointer; transition: background-color 0.15s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-start-session:hover { background: #15294A; }
+    .btn-start-session svg { width: 18px; height: 18px; }
+
+    /* Coach teaser card */
+    .home-coach-card { border-left: 4px solid var(--success); }
+    .home-coach-card.phase-celebration { border-left-color: var(--gold); }
+    .home-coach-card.phase-nudge { border-left-color: #E09515; }
+    .home-coach-card.phase-dormant { border-left-color: var(--error); }
+    .home-coach-card .home-card-label { color: var(--success); }
+    .home-coach-card.phase-celebration .home-card-label { color: var(--gold-hover); }
+    .home-coach-card.phase-nudge .home-card-label { color: #E09515; }
+    .home-coach-card.phase-dormant .home-card-label { color: var(--error); }
+    .home-coach-teaser {
+      font-size: 0.95rem; color: var(--text); line-height: 1.4; margin-bottom: 8px;
+    }
+    .home-coach-preview {
+      font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;
+      overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .home-coach-cta {
+      font-size: 0.85rem; color: var(--success); font-weight: 600;
+      margin-top: 8px; display: flex; align-items: center; gap: 4px;
+    }
+    .home-coach-cta svg { width: 14px; height: 14px; }
+
+    /* Progress section divider */
+    .home-section-divider {
+      display: flex; align-items: center; gap: 12px; margin: 4px 0;
+    }
+    .home-section-divider span {
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted); white-space: nowrap;
+    }
+    .home-section-divider::before,
+    .home-section-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    .adherence-ring-container {
+      display: flex; flex-direction: column; align-items: center;
+      background: #fff; border-radius: 12px; padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .adherence-ring { position: relative; width: 140px; height: 140px; }
+    .adherence-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: var(--border); stroke-width: 10; }
+    .ring-fg {
+      fill: none; stroke: var(--gold); stroke-width: 10;
+      stroke-linecap: round; transition: stroke-dashoffset 0.6s ease;
+    }
+    .ring-label {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); text-align: center;
+    }
+    .ring-pct { font-size: 1.6rem; font-weight: 700; color: var(--navy); }
+    .ring-sub { font-size: 0.7rem; color: var(--text-muted); }
+
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .stat-card {
+      background: #fff; border-radius: 12px; padding: 16px; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .stat-value {
+      font-size: 1.5rem; font-weight: 700; color: var(--navy); margin-bottom: 4px;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+
+    .milestones-section {
+      background: #fff; border-radius: 12px; padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .milestones-title {
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .milestones-row { display: flex; justify-content: center; gap: 24px; }
+    .milestone {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .milestone-circle {
+      width: 48px; height: 48px; border-radius: 50%; border: 3px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem; color: var(--text-muted);
+      transition: all 0.3s ease;
+    }
+    .milestone.reached .milestone-circle {
+      background: var(--gold); border-color: var(--gold); color: #fff;
+    }
+    .milestone-label { font-size: 0.7rem; color: var(--text-muted); }
+
+    .daily-chart-section {
+      background: #fff; border-radius: 12px; padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .daily-chart-title {
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .daily-bars {
+      display: flex; align-items: flex-end; justify-content: space-around;
+      height: 100px; gap: 8px;
+    }
+    .bar-group { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+    .bar-track {
+      width: 100%; max-width: 32px; height: 80px;
+      background: var(--border); border-radius: 4px;
+      position: relative; overflow: hidden;
+    }
+    .bar-fill {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: var(--gold); border-radius: 4px;
+      transition: height 0.4s ease;
+    }
+    .bar-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
+
+    /* ─── Settings View ─── */
+
+    .settings-view { padding: 20px; gap: 16px; overflow-y: auto; }
+
+    .settings-card {
+      background: #fff; border-radius: 12px; padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .settings-card h3 {
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .settings-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 0.9rem; color: var(--text-muted); }
+    .settings-value { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+
+    .btn-logout {
+      width: 100%; padding: 14px; background: #fff; color: var(--error);
+      font-size: 1rem; font-weight: 600; border: 1.5px solid var(--error);
+      border-radius: 10px; cursor: pointer; transition: all 0.15s ease;
+      margin-top: 8px;
+    }
+    .btn-logout:hover { background: #FDE8E8; }
+
+    /* ─── Error Toast ─── */
+
+    .error-toast {
+      position: fixed; bottom: calc(var(--tab-height) + 20px);
+      left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--error); color: #fff; padding: 10px 20px;
+      border-radius: 10px; font-size: 0.9rem; font-weight: 500;
+      box-shadow: 0 4px 12px rgba(197,48,48,0.25);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 100; max-width: calc(100% - 40px); text-align: center;
+    }
+    .error-toast.visible {
+      opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto;
+    }
+
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 40px 20px; color: var(--text-muted);
+      text-align: center; gap: 8px; flex: 1;
+    }
+    .empty-state svg { width: 48px; height: 48px; opacity: 0.3; margin-bottom: 8px; }
+    .empty-state p { font-size: 0.9rem; }
+
+    /* ─── Reduced Motion ─── */
+
+    @media (prefers-reduced-motion: reduce) {
+      .message, .goal-banner.visible, .goal-banner.pulse, .adjust-result.visible { animation: none; }
+      .typing-dot { animation: none; opacity: 0.6; }
+      .typing-dot:nth-child(2) { opacity: 0.4; }
+      .typing-dot:nth-child(3) { opacity: 0.2; }
+      .error-toast { transition: opacity 0.15s ease; }
+      .ring-fg { transition: none; }
+      .bar-fill { transition: none; }
+      .exercise-svg-large svg *, .exercise-svg-small svg * { animation: none !important; }
+    }
+
+    /* ─── Mobile ─── */
+
+    @media (max-width: 480px) {
+      .welcome-card { padding: 32px 24px; }
+      .welcome-card h1 { font-size: 1.5rem; }
+      .message { max-width: 88%; }
+      .app-header { padding: 12px 16px; }
+    }
+
+    /* ─── Desktop ≥768px ─── */
+
+    @media (min-width: 768px) {
+      .app-shell { flex-direction: row; }
+
+      .tab-bar {
+        flex-direction: column;
+        width: 72px;
+        height: 100%;
+        border-top: none;
+        border-right: 1px solid var(--border);
+        padding-bottom: 0;
+        order: -1;
+        padding-top: var(--header-height);
+      }
+
+      .tab-btn {
+        flex: 0; padding: 16px 0;
+      }
+      .tab-btn .tab-label { display: none; }
+      .tab-btn.active::before {
+        top: auto; bottom: auto; left: 0; right: auto;
+        width: 3px; height: 24px; top: 50%; transform: translateY(-50%);
+        border-radius: 0 2px 2px 0;
+      }
+      .tab-btn[title]:hover::after {
+        content: attr(title);
+        position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+        background: var(--navy); color: #fff; padding: 4px 10px;
+        border-radius: 6px; font-size: 0.75rem; white-space: nowrap;
+        margin-left: 8px; z-index: 20; pointer-events: none;
+      }
+
+      .app-main {
+        flex: 1; display: flex; flex-direction: column;
+        min-width: 0; height: 100%;
+      }
+
+      .chat-fab {
+        bottom: 20px;
+      }
+
+      .stats-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Welcome Screen -->
+  <div class="welcome-screen" id="welcomeScreen">
+    <div class="welcome-card">
+      <h1>MedBridge AI Health Coach</h1>
+      <p class="subtitle">Your personal guide to recovery and wellness. Let's get started.</p>
+      <form id="welcomeForm" autocomplete="off">
+        <div class="form-group">
+          <label for="patientIdInput">Patient ID</label>
+          <input type="text" id="patientIdInput" placeholder="e.g. patient-002" value="demo-patient"
+            autocomplete="off" spellcheck="false" required>
+        </div>
+        <button type="submit" class="btn-primary" id="getStartedBtn">
+          <span class="btn-spinner"></span>
+          <span class="btn-text">Get Started</span>
+        </button>
+        <p class="error-text" id="welcomeError"></p>
+        <p class="consent-notice">
+          By continuing, you consent to AI-assisted health coaching.
+          Your data is handled in accordance with our privacy policy.
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <!-- App Shell -->
+  <div class="app-shell" id="appShell">
+    <div class="app-main">
+      <div class="app-header">
+        <h2 id="viewTitle">Health Coach</h2>
+        <span class="phase-badge" id="phaseBadge" data-phase="onboarding">Onboarding</span>
+      </div>
+
+      <div class="view-container">
+        <!-- Chat View -->
+        <div class="view" id="chatView" data-view="chat">
+          <div class="goal-banner" id="goalBanner">
+            <div class="goal-icon">&#9733;</div>
+            <div class="goal-content">
+              <div class="goal-label">Current Goal</div>
+              <div class="goal-text" id="goalText"></div>
+            </div>
+          </div>
+          <div class="messages-area" id="messagesArea" role="log" aria-live="polite">
+            <div class="typing-indicator" id="typingIndicator" role="status" aria-label="Coach is typing">
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+            </div>
+          </div>
+          <div class="input-area">
+            <textarea id="messageInput" rows="1" placeholder="Type your message&#8230;" aria-label="Type your message"></textarea>
+            <button class="send-btn" id="sendBtn" aria-label="Send message" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+              <span class="send-spinner"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Exercises View -->
+        <div class="view" id="exercisesView" data-view="exercises">
+          <div class="day-selector" id="daySelector"></div>
+          <div class="exercise-list" id="exerciseList"></div>
+        </div>
+
+        <!-- Home View -->
+        <div class="view home-view active" id="homeView" data-view="home"></div>
+
+        <!-- Settings View -->
+        <div class="view settings-view" id="settingsView" data-view="settings"></div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar" id="tabBar">
+      <button class="tab-btn active" data-tab="home" title="Home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        <span class="tab-label">Home</span>
+      </button>
+      <button class="tab-btn" data-tab="exercises" title="Exercises">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="18" rx="2" ry="2"></rect>
+          <line x1="8" y1="10" x2="16" y2="10"></line>
+          <line x1="8" y1="14" x2="16" y2="14"></line>
+          <line x1="8" y1="18" x2="12" y2="18"></line>
+        </svg>
+        <span class="tab-label">Exercises</span>
+      </button>
+      <button class="tab-btn" data-tab="chat" title="Coach">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span class="tab-label">Coach</span>
+      </button>
+      <button class="tab-btn" data-tab="settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span class="tab-label">Settings</span>
+      </button>
+    </div>
+
+    <!-- Chat FAB (visible on exercises view) -->
+    <button class="chat-fab" id="chatFab" aria-label="Open chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Chat Drawer -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <div class="chat-drawer" id="chatDrawer">
+    <div class="drawer-header">
+      <h3>Chat</h3>
+      <button class="drawer-close" id="drawerClose" aria-label="Close chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="drawer-messages" id="drawerMessages"></div>
+    <div class="drawer-input">
+      <textarea id="drawerInput" rows="1" placeholder="Type a message&#8230;" aria-label="Type a message"></textarea>
+      <button class="send-btn" id="drawerSendBtn" aria-label="Send message" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+        <span class="send-spinner"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="error-toast" id="errorToast"></div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ─── Config ───
+      var API_KEY = 'dev-api-key-change-me';
+
+      var VIEW_TITLES = {
+        home: 'Home',
+        exercises: 'My Exercises',
+        chat: 'Coach',
+        settings: 'Settings'
+      };
+
+      // ─── State ───
+      var state = {
+        screen: 'welcome',
+        patientId: '',
+        phase: '',
+        currentGoal: null,
+        messages: [],
+        isLoading: false,
+        error: null,
+        activeTab: 'home',
+        exercises: [],
+        currentDay: 1,
+        totalDays: 7,
+        adherence: null,
+        drawerOpen: false,
+        enrollmentDate: null,
+        expandedExerciseId: null
+      };
+
+      // ─── DOM refs ───
+      var welcomeScreen = document.getElementById('welcomeScreen');
+      var appShell = document.getElementById('appShell');
+      var welcomeForm = document.getElementById('welcomeForm');
+      var patientIdInput = document.getElementById('patientIdInput');
+      var getStartedBtn = document.getElementById('getStartedBtn');
+      var welcomeError = document.getElementById('welcomeError');
+      var viewTitle = document.getElementById('viewTitle');
+      var phaseBadge = document.getElementById('phaseBadge');
+      var goalBanner = document.getElementById('goalBanner');
+      var goalText = document.getElementById('goalText');
+      var messagesArea = document.getElementById('messagesArea');
+      var typingIndicator = document.getElementById('typingIndicator');
+      var messageInput = document.getElementById('messageInput');
+      var sendBtn = document.getElementById('sendBtn');
+      var errorToast = document.getElementById('errorToast');
+      var tabBar = document.getElementById('tabBar');
+      var chatFab = document.getElementById('chatFab');
+      var daySelector = document.getElementById('daySelector');
+      var exerciseList = document.getElementById('exerciseList');
+      var homeView = document.getElementById('homeView');
+      var settingsView = document.getElementById('settingsView');
+      var drawerBackdrop = document.getElementById('drawerBackdrop');
+      var chatDrawer = document.getElementById('chatDrawer');
+      var drawerClose = document.getElementById('drawerClose');
+      var drawerMessages = document.getElementById('drawerMessages');
+      var drawerInput = document.getElementById('drawerInput');
+      var drawerSendBtn = document.getElementById('drawerSendBtn');
+
+      // ─── API helpers ───
+      var api = {
+        headers: function () {
+          return { 'Content-Type': 'application/json', 'X-API-Key': API_KEY };
+        },
+
+        idempotencyKey: function () {
+          if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+            var r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+          });
+        },
+
+        triggerEvent: function (patientId, eventType) {
+          return fetch('/events/trigger', {
+            method: 'POST', headers: api.headers(),
+            body: JSON.stringify({ patient_id: patientId, event_type: eventType })
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        getStatus: function (patientId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/status', {
+            headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        sendMessage: function (patientId, message) {
+          return fetch('/chat', {
+            method: 'POST', headers: api.headers(),
+            body: JSON.stringify({ patient_id: patientId, message: message, idempotency_key: api.idempotencyKey() })
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        getExercises: function (patientId, day) {
+          var url = '/patients/' + encodeURIComponent(patientId) + '/exercises';
+          if (day != null) url += '?day=' + day;
+          return fetch(url, { headers: api.headers() })
+            .then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        updateExercise: function (patientId, exerciseId, data) {
+          var body = { exercise_id: exerciseId };
+          if (data.sets_completed !== undefined) body.sets_completed = data.sets_completed;
+          if (data.difficulty !== undefined) body.difficulty = data.difficulty;
+          if (data.feedback !== undefined) body.feedback = data.feedback;
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/exercises/complete', {
+            method: 'POST', headers: api.headers(),
+            body: JSON.stringify(body)
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        adjustExercise: function (patientId, exerciseId, data) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/exercises/' + exerciseId + '/adjust', {
+            method: 'POST', headers: api.headers(),
+            body: JSON.stringify(data)
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        getAdherence: function (patientId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/adherence', {
+            headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        }
+      };
+
+      // ─── Error handling ───
+      var toastTimer = null;
+
+      function friendlyError(status) {
+        switch (status) {
+          case 401: return 'Invalid API key. Please check configuration.';
+          case 403: return 'Consent is required before chatting.';
+          case 404: return 'Patient not found. Please check the ID.';
+          case 422: return 'Unable to process that request.';
+          case 429: return 'Too many requests. Please wait a moment.';
+          default:
+            if (status >= 500) return 'Something went wrong on our end. Please try again.';
+            return 'An unexpected error occurred. Please try again.';
+        }
+      }
+
+      function showError(message) {
+        errorToast.textContent = message;
+        errorToast.classList.add('visible');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { errorToast.classList.remove('visible'); }, 4000);
+      }
+
+      // ─── Rendering helpers ───
+      function updatePhase(phase) {
+        state.phase = phase;
+        var label = phase.replace(/_/g, ' ');
+        phaseBadge.textContent = label.charAt(0).toUpperCase() + label.slice(1);
+        phaseBadge.setAttribute('data-phase', phase);
+      }
+
+      function updateGoal(goal) {
+        var previousGoal = state.currentGoal;
+        state.currentGoal = goal;
+        if (goal) {
+          goalText.textContent = goal;
+          goalBanner.classList.remove('pulse');
+          goalBanner.classList.add('visible');
+          if (goal !== previousGoal) goalBanner.classList.add('pulse');
+        } else {
+          goalBanner.classList.remove('visible', 'pulse');
+        }
+      }
+
+      function addMessage(role, text) {
+        state.messages.push({ role: role, text: text });
+        renderMessageTo(messagesArea, role, text, typingIndicator);
+        autoScroll();
+      }
+
+      function renderMessageTo(container, role, text, beforeEl) {
+        var div = document.createElement('div');
+        div.className = 'message ' + role;
+        var lines = text.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+          if (i > 0) div.appendChild(document.createElement('br'));
+          div.appendChild(document.createTextNode(lines[i]));
+        }
+        if (beforeEl) {
+          container.insertBefore(div, beforeEl);
+        } else {
+          container.appendChild(div);
+        }
+      }
+
+      function autoScroll() {
+        var area = messagesArea;
+        var dist = area.scrollHeight - area.scrollTop - area.clientHeight;
+        if (dist < 100) area.scrollTop = area.scrollHeight;
+      }
+
+      function setLoading(loading) {
+        state.isLoading = loading;
+        messageInput.disabled = loading;
+        sendBtn.disabled = loading || !messageInput.value.trim();
+        sendBtn.classList.toggle('loading', loading);
+        typingIndicator.classList.toggle('visible', loading);
+        if (loading) autoScroll();
+      }
+
+      // ─── Navigation ───
+      function switchTab(tab) {
+        state.activeTab = tab;
+        var views = document.querySelectorAll('.view');
+        for (var i = 0; i < views.length; i++) {
+          views[i].classList.toggle('active', views[i].getAttribute('data-view') === tab);
+        }
+        var btns = tabBar.querySelectorAll('.tab-btn');
+        for (var j = 0; j < btns.length; j++) {
+          btns[j].classList.toggle('active', btns[j].getAttribute('data-tab') === tab);
+        }
+        viewTitle.textContent = VIEW_TITLES[tab] || 'Health Coach';
+        chatFab.classList.toggle('visible', tab === 'exercises');
+
+        if (tab === 'home') loadHome();
+        if (tab === 'exercises') loadExercises();
+        if (tab === 'settings') renderSettings();
+
+        window.location.hash = tab;
+      }
+
+      tabBar.addEventListener('click', function (e) {
+        var btn = e.target.closest('.tab-btn');
+        if (btn) switchTab(btn.getAttribute('data-tab'));
+      });
+
+      // ─── Screen transitions ───
+      function showApp() {
+        state.screen = 'app';
+        welcomeScreen.style.display = 'none';
+        appShell.classList.add('active');
+        viewTitle.textContent = VIEW_TITLES[state.activeTab];
+        if (state.activeTab === 'home') loadHome();
+      }
+
+      // ─── Welcome flow ───
+      function handleWelcome(e) {
+        e.preventDefault();
+        var pid = patientIdInput.value.trim();
+        if (!pid) return;
+
+        state.patientId = pid;
+        sessionStorage.setItem('healthCoachPatientId', pid);
+        welcomeError.classList.remove('visible');
+        getStartedBtn.classList.add('loading');
+        getStartedBtn.disabled = true;
+
+        api.getStatus(pid)
+          .then(function (data) {
+            updatePhase(data.current_phase);
+            updateGoal(data.current_goal);
+            if (data.enrollment_date) {
+              state.enrollmentDate = data.enrollment_date.split('T')[0];
+            }
+            showApp();
+            sendGreeting();
+          })
+          .catch(function () {
+            return api.triggerEvent(pid, 'consent_granted')
+              .then(function (data) {
+                updatePhase(data.new_phase);
+                showApp();
+                sendGreeting();
+              });
+          })
+          .catch(function (err) {
+            var msg = err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.';
+            welcomeError.textContent = msg;
+            welcomeError.classList.add('visible');
+          })
+          .finally(function () {
+            getStartedBtn.classList.remove('loading');
+            getStartedBtn.disabled = false;
+          });
+      }
+
+      function sendGreeting() {
+        setLoading(true);
+        api.sendMessage(state.patientId, 'Hello')
+          .then(function (data) {
+            addMessage('coach', data.response);
+            updatePhase(data.current_phase);
+            updateGoal(data.current_goal);
+          })
+          .catch(function (err) {
+            showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
+          })
+          .finally(function () { setLoading(false); });
+      }
+
+      // ─── Chat flow ───
+      function handleSend() {
+        var text = messageInput.value.trim();
+        if (!text || state.isLoading) return;
+
+        addMessage('patient', text);
+        messageInput.value = '';
+        adjustTextarea();
+        setLoading(true);
+
+        api.sendMessage(state.patientId, text)
+          .then(function (data) {
+            addMessage('coach', data.response);
+            updatePhase(data.current_phase);
+            updateGoal(data.current_goal);
+          })
+          .catch(function (err) {
+            showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
+          })
+          .finally(function () {
+            setLoading(false);
+            messageInput.focus();
+          });
+      }
+
+      function handleDrawerSend() {
+        var text = drawerInput.value.trim();
+        if (!text || state.isLoading) return;
+
+        addMessage('patient', text);
+        syncDrawerMessages();
+        drawerInput.value = '';
+        adjustDrawerTextarea();
+        setLoading(true);
+
+        api.sendMessage(state.patientId, text)
+          .then(function (data) {
+            addMessage('coach', data.response);
+            updatePhase(data.current_phase);
+            updateGoal(data.current_goal);
+            syncDrawerMessages();
+          })
+          .catch(function (err) {
+            showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
+          })
+          .finally(function () {
+            setLoading(false);
+            drawerInput.focus();
+          });
+      }
+
+      function adjustTextarea() {
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+        sendBtn.disabled = state.isLoading || !messageInput.value.trim();
+      }
+
+      function adjustDrawerTextarea() {
+        drawerInput.style.height = 'auto';
+        drawerInput.style.height = Math.min(drawerInput.scrollHeight, 80) + 'px';
+        drawerSendBtn.disabled = state.isLoading || !drawerInput.value.trim();
+      }
+
+      // ─── Chat Drawer ───
+      function openDrawer() {
+        state.drawerOpen = true;
+        syncDrawerMessages();
+        drawerBackdrop.classList.add('open');
+        chatDrawer.classList.add('open');
+        drawerInput.focus();
+      }
+
+      function closeDrawer() {
+        state.drawerOpen = false;
+        drawerBackdrop.classList.remove('open');
+        chatDrawer.classList.remove('open');
+      }
+
+      function syncDrawerMessages() {
+        drawerMessages.innerHTML = '';
+        for (var i = 0; i < state.messages.length; i++) {
+          renderMessageTo(drawerMessages, state.messages[i].role, state.messages[i].text, null);
+        }
+        drawerMessages.scrollTop = drawerMessages.scrollHeight;
+      }
+
+      chatFab.addEventListener('click', openDrawer);
+      drawerBackdrop.addEventListener('click', closeDrawer);
+      drawerClose.addEventListener('click', closeDrawer);
+
+      drawerInput.addEventListener('input', adjustDrawerTextarea);
+      drawerInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleDrawerSend(); }
+      });
+      drawerSendBtn.addEventListener('click', handleDrawerSend);
+
+      // ─── SVG Illustrations ───
+      // Each SVG shows a connected stick figure in a pose matching the exercise.
+      // Animated parts rotate at joint points (transform-origin) so limbs stay attached.
+      // Lying exercises: side view, head left, feet right, bed line at y=44.
+      // Standing exercises: front view, head top, ground at y=58.
+      var exerciseSvgs = {
+        ankle: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="4"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="2.5"/><circle cx="20" cy="50" r="1.5" fill="#1B365D"/><circle cx="30" cy="50" r="1.5" fill="#1B365D"/><line x1="30" y1="50" x2="44" y2="50" stroke-width="3"/><circle cx="44" cy="50" r="1.5" fill="#1B365D"/><line x1="44" y1="50" x2="54" y2="50" stroke-width="3"/><g style="transform-origin:54px 50px; animation:foot-flex 1.5s ease-in-out infinite alternate"><line x1="54" y1="50" x2="60" y2="46" stroke="#F5A623" stroke-width="2.5"/></g></svg>',
+        quad_set: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="4"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="2.5"/><circle cx="20" cy="50" r="1.5" fill="#1B365D"/><circle cx="30" cy="50" r="1.5" fill="#1B365D"/><line x1="30" y1="50" x2="44" y2="50" stroke-width="3"/><circle cx="44" cy="50" r="1.5" fill="#1B365D"/><line x1="44" y1="50" x2="58" y2="48" stroke-width="3"/><g style="animation:exercise-motion 0.8s ease-in-out infinite alternate"><line x1="40" y1="44" x2="40" y2="47" stroke="#F5A623" stroke-width="1.5"/><line x1="43" y1="43" x2="43" y2="47" stroke="#F5A623" stroke-width="1.5"/><line x1="46" y1="44" x2="46" y2="47" stroke="#F5A623" stroke-width="1.5"/></g><line x1="43" y1="55" x2="43" y2="58" stroke="#F5A623" stroke-width="1.5"/><polyline points="41,57 43,59 45,57" stroke="#F5A623" stroke-width="1.5" fill="none"/></svg>',
+        heel_slide: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="4"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="2.5"/><circle cx="20" cy="50" r="1.5" fill="#1B365D"/><circle cx="30" cy="50" r="1.5" fill="#1B365D"/><line x1="30" y1="50" x2="44" y2="50" stroke-width="3"/><circle cx="44" cy="50" r="1.5" fill="#1B365D"/><g style="transform-origin:44px 50px; animation:heel-bend 2s ease-in-out infinite alternate"><line x1="44" y1="50" x2="58" y2="50" stroke="#F5A623" stroke-width="3"/></g></svg>',
+        hamstring: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/><rect x="12" y="55" width="48" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><line x1="24" y1="54" x2="54" y2="54" stroke-width="3"/><circle cx="40" cy="54" r="1.5" fill="#1B365D"/><line x1="54" y1="54" x2="60" y2="52" stroke-width="2.5"/><circle cx="24" cy="54" r="1.5" fill="#1B365D"/><g style="transform-origin:24px 54px; animation:stretch-reach 2s ease-in-out infinite alternate"><line x1="24" y1="54" x2="20" y2="20" stroke-width="4"/><circle cx="18" cy="14" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><circle cx="22" cy="32" r="1.5" fill="#1B365D"/><line x1="22" y1="32" x2="36" y2="44" stroke="#F5A623" stroke-width="2.5"/></g></svg>',
+        calf: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><g style="animation:exercise-motion 1.2s ease-in-out infinite alternate"><circle cx="32" cy="8" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="32" y1="12.5" x2="32" y2="32" stroke-width="4"/><circle cx="32" cy="16" r="1.5" fill="#1B365D"/><line x1="32" y1="16" x2="22" y2="24" stroke-width="2.5"/><line x1="32" y1="16" x2="42" y2="24" stroke-width="2.5"/><circle cx="32" cy="32" r="1.5" fill="#1B365D"/><line x1="32" y1="32" x2="28" y2="48" stroke-width="3"/><circle cx="28" cy="48" r="1.5" fill="#1B365D"/><line x1="32" y1="32" x2="36" y2="48" stroke-width="3"/><circle cx="36" cy="48" r="1.5" fill="#1B365D"/><line x1="28" y1="48" x2="26" y2="60" stroke="#F5A623" stroke-width="3"/><line x1="36" y1="48" x2="38" y2="60" stroke="#F5A623" stroke-width="3"/></g></svg>',
+        leg_raise: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="4"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="2.5"/><circle cx="20" cy="50" r="1.5" fill="#1B365D"/><circle cx="30" cy="50" r="1.5" fill="#1B365D"/><line x1="30" y1="50" x2="50" y2="50" stroke-width="3"/><circle cx="40" cy="50" r="1.5" fill="#1B365D"/><line x1="50" y1="50" x2="56" y2="48" stroke-width="2.5"/><g style="transform-origin:30px 50px; animation:leg-lift 1.8s ease-in-out infinite alternate"><line x1="30" y1="50" x2="50" y2="50" stroke="#F5A623" stroke-width="3"/><line x1="50" y1="50" x2="56" y2="48" stroke="#F5A623" stroke-width="2.5"/></g></svg>',
+        bridge: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="56" x2="62" y2="56" stroke="#D4D0C8" stroke-width="1"/><circle cx="6" cy="50" r="4" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="10" y1="52" x2="16" y2="54" stroke-width="4"/><circle cx="12" cy="53" r="1.5" fill="#1B365D"/><line x1="12" y1="53" x2="10" y2="56" stroke-width="2.5"/><line x1="16" y1="54" x2="34" y2="36" stroke-width="4"/><circle cx="34" cy="36" r="1.5" fill="#1B365D"/><line x1="34" y1="36" x2="44" y2="48" stroke-width="3"/><circle cx="44" cy="48" r="1.5" fill="#1B365D"/><line x1="44" y1="48" x2="48" y2="56" stroke-width="3"/><line x1="48" y1="56" x2="52" y2="56" stroke-width="2.5"/><g style="animation:exercise-motion 1.5s ease-in-out infinite alternate"><line x1="34" y1="32" x2="34" y2="26" stroke="#F5A623" stroke-width="1.5"/><polyline points="32,28 34,26 36,28" stroke="#F5A623" stroke-width="1.5" fill="none"/></g></svg>',
+        hip_abduction: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><circle cx="32" cy="8" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="32" y1="12.5" x2="32" y2="32" stroke-width="4"/><circle cx="32" cy="16" r="1.5" fill="#1B365D"/><line x1="32" y1="16" x2="22" y2="24" stroke-width="2.5"/><line x1="32" y1="16" x2="42" y2="24" stroke-width="2.5"/><circle cx="32" cy="32" r="1.5" fill="#1B365D"/><line x1="32" y1="32" x2="28" y2="48" stroke-width="3"/><circle cx="28" cy="48" r="1.5" fill="#1B365D"/><line x1="28" y1="48" x2="26" y2="60" stroke-width="3"/><g style="transform-origin:32px 32px; animation:leg-side 1.5s ease-in-out infinite alternate"><line x1="32" y1="32" x2="44" y2="50" stroke="#F5A623" stroke-width="3"/><circle cx="44" cy="50" r="1.5" fill="#F5A623"/><line x1="44" y1="50" x2="48" y2="60" stroke="#F5A623" stroke-width="2.5"/></g></svg>',
+        balance: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><g style="animation:exercise-motion 2.5s ease-in-out infinite alternate"><circle cx="32" cy="8" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="32" y1="12.5" x2="32" y2="32" stroke-width="4"/><circle cx="32" cy="16" r="1.5" fill="#1B365D"/><line x1="32" y1="16" x2="18" y2="22" stroke-width="2.5"/><line x1="32" y1="16" x2="46" y2="22" stroke-width="2.5"/><circle cx="32" cy="32" r="1.5" fill="#1B365D"/><line x1="32" y1="32" x2="32" y2="48" stroke-width="3"/><circle cx="32" cy="48" r="1.5" fill="#1B365D"/><line x1="32" y1="48" x2="30" y2="60" stroke-width="3"/><line x1="32" y1="32" x2="46" y2="42" stroke="#F5A623" stroke-width="2.5" stroke-dasharray="3 2"/></g></svg>',
+        squat: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><line x1="43" y1="4" x2="43" y2="60" stroke="#D4D0C8" stroke-width="1.5"/><g style="animation:squat-down 1.5s ease-in-out infinite alternate"><circle cx="35" cy="8" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="37" y1="12" x2="39" y2="32" stroke-width="4"/><circle cx="37" cy="18" r="1.5" fill="#1B365D"/><line x1="37" y1="18" x2="27" y2="26" stroke-width="2.5"/><circle cx="39" cy="32" r="1.5" fill="#1B365D"/><line x1="39" y1="32" x2="29" y2="46" stroke-width="3"/><circle cx="29" cy="46" r="1.5" fill="#1B365D"/><line x1="29" y1="46" x2="25" y2="60" stroke-width="3"/><line x1="25" y1="60" x2="21" y2="60" stroke-width="2.5"/></g></svg>',
+        step_up: '<svg class="stepup-svg" viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line class="stepup-ground" x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><rect class="stepup-box" x="28" y="46" width="22" height="14" rx="2" fill="#F0EDE8" stroke="#D4D0C8"/><g class="stepup-figure" style="animation:step-motion 1.5s ease-in-out infinite alternate"><circle cx="22" cy="8" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="22" y1="12.5" x2="22" y2="32" stroke-width="4"/><circle cx="22" cy="16" r="1.5" fill="#1B365D"/><line x1="22" y1="16" x2="14" y2="24" stroke-width="2.5"/><line x1="22" y1="16" x2="30" y2="22" stroke-width="2.5"/><circle cx="22" cy="32" r="1.5" fill="#1B365D"/><line class="stepup-stance-thigh" x1="22" y1="32" x2="18" y2="48" stroke-width="3"/><circle cx="18" cy="48" r="1.5" fill="#1B365D"/><line class="stepup-stance-shin" x1="18" y1="48" x2="16" y2="60" stroke-width="3"/><line class="stepup-step-thigh" x1="22" y1="32" x2="32" y2="38" stroke="#F5A623" stroke-width="3"/><circle cx="32" cy="38" r="1.5" fill="#F5A623"/><line class="stepup-step-shin" x1="32" y1="38" x2="34" y2="44" stroke="#F5A623" stroke-width="3"/></g></svg>',
+        stretch: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/><rect x="10" y="55" width="50" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><line x1="22" y1="54" x2="56" y2="54" stroke-width="3"/><circle cx="38" cy="54" r="1.5" fill="#1B365D"/><line x1="56" y1="54" x2="62" y2="52" stroke-width="2.5"/><circle cx="22" cy="54" r="1.5" fill="#1B365D"/><g style="transform-origin:22px 54px; animation:stretch-reach 2s ease-in-out infinite alternate"><line x1="22" y1="54" x2="18" y2="18" stroke-width="4"/><circle cx="16" cy="12" r="4.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><circle cx="20" cy="30" r="1.5" fill="#1B365D"/><line x1="20" y1="30" x2="32" y2="42" stroke="#F5A623" stroke-width="2.5"/></g></svg>'
+      };
+
+      function getExerciseSvg(name) {
+        var lower = name.toLowerCase();
+        if (lower.indexOf('ankle') !== -1) return exerciseSvgs.ankle;
+        if (lower.indexOf('quad set') !== -1) return exerciseSvgs.quad_set;
+        if (lower.indexOf('heel slide') !== -1) return exerciseSvgs.heel_slide;
+        if (lower.indexOf('hamstring') !== -1) return exerciseSvgs.hamstring;
+        if (lower.indexOf('calf') !== -1) return exerciseSvgs.calf;
+        if (lower.indexOf('leg raise') !== -1 || lower.indexOf('straight leg') !== -1) return exerciseSvgs.leg_raise;
+        if (lower.indexOf('bridge') !== -1 || lower.indexOf('glute') !== -1) return exerciseSvgs.bridge;
+        if (lower.indexOf('hip abduction') !== -1) return exerciseSvgs.hip_abduction;
+        if (lower.indexOf('balance') !== -1 || lower.indexOf('heel-to-toe') !== -1 || lower.indexOf('heel to toe') !== -1) return exerciseSvgs.balance;
+        if (lower.indexOf('squat') !== -1 || lower.indexOf('wall squat') !== -1) return exerciseSvgs.squat;
+        if (lower.indexOf('step') !== -1) return exerciseSvgs.step_up;
+        if (lower.indexOf('piriformis') !== -1 || lower.indexOf('stretch') !== -1) return exerciseSvgs.stretch;
+        return exerciseSvgs.stretch;
+      }
+
+      function getExerciseMetaText(ex) {
+        if (ex.hold_seconds) {
+          var text = 'Hold ' + ex.hold_seconds + 's';
+          if (ex.sets > 1) text += ' x' + ex.sets;
+          return text;
+        }
+        if (ex.sets && ex.reps) return ex.sets + 'x' + ex.reps;
+        return '';
+      }
+
+      // ─── Exercises View ───
+      function renderDaySelector() {
+        daySelector.innerHTML = '';
+        for (var d = 1; d <= state.totalDays; d++) {
+          var pill = document.createElement('button');
+          pill.className = 'day-pill';
+          if (d === state.currentDay) pill.classList.add('active');
+          if (d > state.adherence?.current_day && state.adherence) pill.classList.add('disabled');
+          pill.innerHTML = '<span class="day-num">' + d + '</span>Day';
+          pill.setAttribute('data-day', d);
+          pill.addEventListener('click', (function (day) {
+            return function () {
+              state.currentDay = day;
+              renderDaySelector();
+              loadExercisesForDay(day);
+            };
+          })(d));
+          daySelector.appendChild(pill);
+        }
+      }
+
+      function loadExercises() {
+        api.getAdherence(state.patientId)
+          .then(function (data) {
+            state.adherence = data;
+            state.currentDay = data.current_day;
+            renderDaySelector();
+            return loadExercisesForDay(state.currentDay);
+          })
+          .catch(function (err) {
+            showError('Could not load exercises.');
+          });
+      }
+
+      function loadExercisesForDay(day) {
+        return api.getExercises(state.patientId, day)
+          .then(function (data) {
+            state.exercises = data.exercises;
+            renderExerciseList();
+          })
+          .catch(function () {
+            showError('Could not load exercises for this day.');
+          });
+      }
+
+      function renderExerciseList() {
+        exerciseList.innerHTML = '';
+        if (!state.exercises.length) {
+          exerciseList.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg><p>No exercises for this day yet.</p></div>';
+          return;
+        }
+
+        for (var i = 0; i < state.exercises.length; i++) {
+          var ex = state.exercises[i];
+          exerciseList.appendChild(buildExerciseCard(ex));
+        }
+        // #region agent log
+        if (state.expandedExerciseId != null) {
+          requestAnimationFrame(function () {
+            var expandedCard = document.querySelector('.exercise-card.expanded');
+            if (!expandedCard) return;
+            var expand = expandedCard.querySelector('.exercise-expand');
+            var svgLarge = expandedCard ? expandedCard.querySelector('.exercise-svg-large') : null;
+            var svgEl = svgLarge ? svgLarge.querySelector('svg') : null;
+            var cardRect = expandedCard.getBoundingClientRect();
+            var expandRect = expand ? expand.getBoundingClientRect() : {};
+            var svgLargeRect = svgLarge ? svgLarge.getBoundingClientRect() : {};
+            var svgElRect = svgEl ? svgEl.getBoundingClientRect() : {};
+            var cs = svgLarge ? window.getComputedStyle(svgLarge) : {};
+            var csSvg = svgEl ? window.getComputedStyle(svgEl) : {};
+            var stepUpGroup = svgEl ? svgEl.querySelector('.stepup-figure') : null;
+            var stepUpGround = svgEl ? svgEl.querySelector('.stepup-ground') : null;
+            var stepUpBox = svgEl ? svgEl.querySelector('.stepup-box') : null;
+            var stepUpStanceShin = svgEl ? svgEl.querySelector('.stepup-stance-shin') : null;
+            var stepUpStepShin = svgEl ? svgEl.querySelector('.stepup-step-shin') : null;
+            var stepUpGroupRect = stepUpGroup ? stepUpGroup.getBoundingClientRect() : null;
+            var stepUpGroundRect = stepUpGround ? stepUpGround.getBoundingClientRect() : null;
+            var stepUpBoxRect = stepUpBox ? stepUpBox.getBoundingClientRect() : null;
+            var stepUpStanceShinRect = stepUpStanceShin ? stepUpStanceShin.getBoundingClientRect() : null;
+            var stepUpStepShinRect = stepUpStepShin ? stepUpStepShin.getBoundingClientRect() : null;
+            var stepUpGroupStyle = stepUpGroup ? window.getComputedStyle(stepUpGroup) : {};
+            var bbox = null;
+            var viewBox = null;
+            if (svgEl && typeof svgEl.getBBox === 'function') {
+              try {
+                bbox = svgEl.getBBox();
+              } catch (err) {}
+            }
+            if (svgEl && svgEl.viewBox && svgEl.viewBox.baseVal) {
+              viewBox = svgEl.viewBox.baseVal;
+            }
+            fetch('http://127.0.0.1:7523/ingest/25cc9cd1-2ee7-4d88-86e4-82424ce23ec9', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '57fdda' },
+              body: JSON.stringify({
+                sessionId: '57fdda',
+                runId: 'post-fix',
+                location: 'index.html:renderExerciseList',
+                message: 'expanded card layout',
+                data: {
+                  hypothesisId: 'H1-H5',
+                  cardWidth: cardRect.width,
+                  expandWidth: expandRect.width,
+                  svgLargeRectWidth: svgLargeRect.width,
+                  svgLargeRectHeight: svgLargeRect.height,
+                  computedWrapperWidth: cs.width,
+                  computedWrapperHeight: cs.height,
+                  computedWrapperMaxWidth: cs.maxWidth,
+                  computedSvgWidth: csSvg.width,
+                  computedSvgHeight: csSvg.height,
+                  svgLargeOffsetLeft: svgLarge ? svgLarge.offsetLeft : null,
+                  expandPaddingLeft: expand ? window.getComputedStyle(expand).paddingLeft : null,
+                  bboxX: bbox ? bbox.x : null,
+                  bboxY: bbox ? bbox.y : null,
+                  bboxWidth: bbox ? bbox.width : null,
+                  bboxHeight: bbox ? bbox.height : null,
+                  viewBoxX: viewBox ? viewBox.x : null,
+                  viewBoxY: viewBox ? viewBox.y : null,
+                  viewBoxWidth: viewBox ? viewBox.width : null,
+                  viewBoxHeight: viewBox ? viewBox.height : null,
+                  stepUpDetected: !!stepUpGroup,
+                  stepUpAnimationName: stepUpGroup ? stepUpGroupStyle.animationName : null,
+                  stepUpTransform: stepUpGroup ? stepUpGroupStyle.transform : null,
+                  stepUpFigureBottom: stepUpGroupRect ? stepUpGroupRect.bottom : null,
+                  stepUpGroundTop: stepUpGroundRect ? stepUpGroundRect.top : null,
+                  stepUpBoxTop: stepUpBoxRect ? stepUpBoxRect.top : null,
+                  stepUpStanceFootBottom: stepUpStanceShinRect ? stepUpStanceShinRect.bottom : null,
+                  stepUpStepFootBottom: stepUpStepShinRect ? stepUpStepShinRect.bottom : null
+                },
+                timestamp: Date.now()
+              })
+            }).catch(function () {});
+          });
+        }
+        // #endregion
+      }
+
+      function buildExerciseCard(ex) {
+        var isExpanded = state.expandedExerciseId === ex.exercise_id;
+        var allDone = ex.sets_completed >= ex.sets && ex.sets > 0;
+
+        var card = document.createElement('div');
+        card.className = 'exercise-card';
+        if (isExpanded) card.classList.add('expanded');
+        if (allDone) card.classList.add('all-sets-done');
+
+        // ── Header (collapsed view) ──
+        var header = document.createElement('div');
+        header.className = 'exercise-card-header';
+        header.addEventListener('click', (function (eid) {
+          return function () {
+            state.expandedExerciseId = state.expandedExerciseId === eid ? null : eid;
+            renderExerciseList();
+          };
+        })(ex.exercise_id));
+
+        // Small SVG
+        var svgSmall = document.createElement('div');
+        svgSmall.className = 'exercise-svg-small';
+        svgSmall.innerHTML = getExerciseSvg(ex.name);
+
+        // Header info
+        var headerInfo = document.createElement('div');
+        headerInfo.className = 'exercise-header-info';
+
+        var nameEl = document.createElement('div');
+        nameEl.className = 'exercise-name';
+        nameEl.textContent = ex.name;
+
+        var headerMeta = document.createElement('div');
+        headerMeta.className = 'exercise-header-meta';
+
+        var bodyBadge = document.createElement('span');
+        bodyBadge.className = 'exercise-badge body-part';
+        bodyBadge.textContent = ex.body_part;
+        headerMeta.appendChild(bodyBadge);
+
+        var metaText = getExerciseMetaText(ex);
+        if (metaText) {
+          var metaSpan = document.createElement('span');
+          metaSpan.textContent = metaText;
+          headerMeta.appendChild(document.createTextNode(' \u00B7 '));
+          headerMeta.appendChild(metaSpan);
+        }
+
+        // Progress dots
+        var dotsContainer = document.createElement('div');
+        dotsContainer.className = 'exercise-progress-dots';
+        for (var s = 0; s < ex.sets; s++) {
+          var dot = document.createElement('div');
+          dot.className = 'progress-dot';
+          if (s < ex.sets_completed) dot.classList.add('filled');
+          dotsContainer.appendChild(dot);
+        }
+        var dotLabel = document.createElement('span');
+        dotLabel.className = 'progress-dot-label';
+        dotLabel.textContent = ex.sets_completed + '/' + ex.sets + ' sets';
+        dotsContainer.appendChild(dotLabel);
+
+        headerInfo.appendChild(nameEl);
+        headerInfo.appendChild(headerMeta);
+        headerInfo.appendChild(dotsContainer);
+
+        // Chevron
+        var chevron = document.createElement('div');
+        chevron.className = 'exercise-chevron';
+        chevron.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+
+        header.appendChild(svgSmall);
+        header.appendChild(headerInfo);
+        header.appendChild(chevron);
+        card.appendChild(header);
+
+        // ── Expanded content ──
+        var expand = document.createElement('div');
+        expand.className = 'exercise-expand';
+
+        // Large SVG
+        var svgLarge = document.createElement('div');
+        svgLarge.className = 'exercise-svg-large';
+        svgLarge.innerHTML = getExerciseSvg(ex.name);
+
+        // Description
+        var descEl = document.createElement('div');
+        descEl.className = 'exercise-desc';
+        descEl.textContent = ex.description;
+
+        expand.appendChild(svgLarge);
+        expand.appendChild(descEl);
+
+        // Divider
+        var div1 = document.createElement('div');
+        div1.className = 'exercise-divider';
+        expand.appendChild(div1);
+
+        // Set checkboxes
+        var setSection = document.createElement('div');
+        setSection.className = 'set-checkboxes';
+        for (var j = 0; j < ex.sets; j++) {
+          var setBox = document.createElement('div');
+          setBox.className = 'set-checkbox';
+          var setLabel = document.createElement('span');
+          setLabel.className = 'set-checkbox-label';
+          setLabel.textContent = 'Set ' + (j + 1);
+          var setBtn = document.createElement('button');
+          setBtn.className = 'set-check-btn';
+          if (j < ex.sets_completed) setBtn.classList.add('checked');
+          setBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+          setBtn.setAttribute('aria-label', 'Toggle set ' + (j + 1));
+          setBtn.addEventListener('click', (function (exercise, setNum) {
+            return function (e) {
+              e.stopPropagation();
+              toggleSet(exercise, setNum);
+            };
+          })(ex, j + 1));
+          setBox.appendChild(setLabel);
+          setBox.appendChild(setBtn);
+          setSection.appendChild(setBox);
+        }
+        expand.appendChild(setSection);
+
+        // Difficulty section (visible if at least 1 set done)
+        if (ex.sets_completed > 0) {
+          var div2 = document.createElement('div');
+          div2.className = 'exercise-divider';
+          expand.appendChild(div2);
+
+          var diffSection = document.createElement('div');
+          diffSection.className = 'difficulty-section';
+          var diffLabel = document.createElement('div');
+          diffLabel.className = 'difficulty-label';
+          diffLabel.textContent = 'How was this exercise?';
+          diffSection.appendChild(diffLabel);
+
+          var pills = document.createElement('div');
+          pills.className = 'difficulty-pills';
+
+          var difficulties = [
+            { value: 'too_easy', label: 'Too Easy', activeClass: 'active-easy' },
+            { value: 'just_right', label: 'Just Right', activeClass: 'active-right' },
+            { value: 'too_hard', label: 'Too Hard', activeClass: 'active-hard' }
+          ];
+          for (var d = 0; d < difficulties.length; d++) {
+            var diff = difficulties[d];
+            var pill = document.createElement('button');
+            pill.className = 'difficulty-pill';
+            if (ex.difficulty === diff.value) pill.classList.add(diff.activeClass);
+            pill.textContent = diff.label;
+            pill.addEventListener('click', (function (exercise, diffValue) {
+              return function (e) {
+                e.stopPropagation();
+                selectDifficulty(exercise, diffValue);
+              };
+            })(ex, diff.value));
+            pills.appendChild(pill);
+          }
+          diffSection.appendChild(pills);
+          expand.appendChild(diffSection);
+
+          // Feedback section (if too_hard and sets incomplete, or too_easy and fully complete)
+          var showFeedback = (ex.difficulty === 'too_hard' && ex.sets_completed < ex.sets) ||
+                            (ex.difficulty === 'too_easy') ||
+                            (ex.difficulty === 'too_hard');
+          if (showFeedback) {
+            var fbSection = document.createElement('div');
+            fbSection.className = 'feedback-section visible';
+
+            if (ex.difficulty === 'too_hard') {
+              var fbTextarea = document.createElement('textarea');
+              fbTextarea.className = 'feedback-textarea';
+              fbTextarea.placeholder = "What made it difficult? (e.g., knee pain, too many reps)";
+              fbTextarea.value = ex.feedback || '';
+              fbTextarea.addEventListener('click', function (e) { e.stopPropagation(); });
+              fbSection.appendChild(fbTextarea);
+            }
+
+            var adjustBtn = document.createElement('button');
+            adjustBtn.className = 'btn-adjust';
+            adjustBtn.innerHTML = '<span class="adjust-spinner"></span><span class="adjust-text">Adjust My Exercise</span>';
+            adjustBtn.addEventListener('click', (function (exercise, section) {
+              return function (e) {
+                e.stopPropagation();
+                var textarea = section.querySelector('.feedback-textarea');
+                var feedbackVal = textarea ? textarea.value : null;
+                submitAdjustment(exercise, section, feedbackVal);
+              };
+            })(ex, fbSection));
+            fbSection.appendChild(adjustBtn);
+
+            // Result placeholder
+            var resultDiv = document.createElement('div');
+            resultDiv.className = 'adjust-result';
+            fbSection.appendChild(resultDiv);
+
+            expand.appendChild(fbSection);
+          }
+        }
+
+        card.appendChild(expand);
+        return card;
+      }
+
+      function toggleSet(exercise, setNumber) {
+        var newCompleted;
+        if (setNumber <= exercise.sets_completed) {
+          // Unchecking: set count to setNumber - 1
+          newCompleted = setNumber - 1;
+        } else {
+          // Checking: set count to setNumber
+          newCompleted = setNumber;
+        }
+
+        api.updateExercise(state.patientId, exercise.exercise_id, { sets_completed: newCompleted })
+          .then(function (data) {
+            exercise.sets_completed = data.sets_completed;
+            exercise.is_completed = data.completed;
+            renderExerciseList();
+          })
+          .catch(function () { showError('Could not update exercise.'); });
+      }
+
+      function selectDifficulty(exercise, level) {
+        exercise.difficulty = level;
+        api.updateExercise(state.patientId, exercise.exercise_id, { difficulty: level })
+          .then(function () {
+            renderExerciseList();
+          })
+          .catch(function () { showError('Could not save difficulty.'); });
+      }
+
+      function submitAdjustment(exercise, section, feedback) {
+        var btn = section.querySelector('.btn-adjust');
+        var resultDiv = section.querySelector('.adjust-result');
+        btn.classList.add('loading');
+        btn.disabled = true;
+
+        api.adjustExercise(state.patientId, exercise.exercise_id, {
+          difficulty: exercise.difficulty,
+          feedback: feedback || null
+        })
+          .then(function (data) {
+            // Show reasoning
+            resultDiv.innerHTML = '<div class="adjust-result-title">Exercise Updated</div>' +
+              '<div class="adjust-result-text">' + escapeHtml(data.reasoning) + '</div>';
+            resultDiv.classList.add('visible');
+            btn.style.display = 'none';
+
+            // Replace exercise in state after a brief delay
+            setTimeout(function () {
+              for (var i = 0; i < state.exercises.length; i++) {
+                if (state.exercises[i].exercise_id === exercise.exercise_id) {
+                  state.exercises[i] = data.new_exercise;
+                  state.exercises[i].sets_completed = 0;
+                  state.exercises[i].difficulty = null;
+                  state.exercises[i].feedback = null;
+                  state.expandedExerciseId = data.new_exercise.exercise_id;
+                  break;
+                }
+              }
+              renderExerciseList();
+            }, 2000);
+          })
+          .catch(function () {
+            showError('Could not adjust exercise. Please try again.');
+            btn.classList.remove('loading');
+            btn.disabled = false;
+          });
+      }
+
+      // ─── Home View ───
+      function getTimeGreeting() {
+        var h = new Date().getHours();
+        if (h < 12) return 'Good Morning';
+        if (h < 17) return 'Good Afternoon';
+        return 'Good Evening';
+      }
+
+      function getCoachTeaser(phase, daysInProgram) {
+        switch (phase) {
+          case 'onboarding':
+            return { text: 'Your AI Health Coach is ready to help you set your recovery goals.', style: '', label: 'Get Started' };
+          case 'active':
+            if (daysInProgram === 2)
+              return { text: 'Two days in! Your coach wants to celebrate your progress.', style: ' phase-celebration', label: 'Celebration' };
+            if (daysInProgram === 5)
+              return { text: 'Day 5 check-in time. Your coach has some tips for you.', style: ' phase-nudge', label: 'Check-in' };
+            if (daysInProgram >= 7)
+              return { text: 'One week milestone! Tap to review your journey with your coach.', style: ' phase-celebration', label: 'Milestone' };
+            return { text: 'Your coach is here to answer questions and keep you on track.', style: '', label: 'AI Coach' };
+          case 'dormant':
+            return { text: 'We noticed you\'ve been away. Your coach is ready to help you get back on track.', style: ' phase-dormant', label: 'Welcome Back' };
+          case 're_engaging':
+            return { text: 'Great to see you again! Your coach has a plan to ease you back in.', style: ' phase-nudge', label: 'Re-engaging' };
+          default:
+            return { text: 'Your AI Health Coach is here to support your recovery.', style: '', label: 'AI Coach' };
+        }
+      }
+
+      function loadHome() {
+        api.getAdherence(state.patientId)
+          .then(function (data) {
+            state.adherence = data;
+            renderHome();
+          })
+          .catch(function () { showError('Could not load dashboard.'); });
+      }
+
+      function renderHome() {
+        var a = state.adherence;
+        if (!a) return;
+
+        // 1. Greeting header
+        var streakHtml = a.streak > 0
+          ? '<div class="home-streak"><svg viewBox="0 0 24 24" width="14" height="14" fill="var(--gold)" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' + a.streak + ' day streak</div>'
+          : '';
+        var greetingHtml = '<div class="home-greeting"><h2>' + getTimeGreeting() + ', ' + escapeHtml(state.patientId) + '</h2><div class="home-program">Post-Op Rehabilitation Program</div>' + streakHtml + '</div>';
+
+        // 2. Goal card
+        var goalCardHtml;
+        if (state.currentGoal) {
+          goalCardHtml = '<div class="home-card home-goal-card" id="homeGoalCard"><div class="home-card-label">Your Recovery Goal</div><div class="home-goal-text">' + escapeHtml(state.currentGoal) + '</div></div>';
+        } else {
+          goalCardHtml = '<div class="home-card home-goal-card" id="homeGoalCard"><div class="home-card-label">Your Recovery Goal</div><div class="home-goal-cta">Tap here to set your recovery goal with your AI Coach <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div></div>';
+        }
+
+        // 3. Action plan card
+        var todayDue = a.exercises_due_today;
+        var todayDone = a.exercises_completed_today;
+        var estMins = todayDue * 4;
+        var progressPct = todayDue > 0 ? (todayDone / todayDue * 100) : 0;
+        var actionCardHtml = '<div class="home-card home-action-card" id="homeActionCard">' +
+          '<div class="home-card-label">Today\'s Exercises</div>' +
+          '<div class="home-action-summary"><strong>' + todayDue + ' exercises</strong> &middot; ~' + estMins + ' mins</div>' +
+          '<div class="home-progress-track"><div class="home-progress-fill" style="width:' + progressPct + '%"></div></div>' +
+          '<div class="home-progress-label">' + todayDone + '/' + todayDue + ' completed</div>' +
+          '<button class="btn-start-session" id="homeStartBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>' + (todayDone > 0 && todayDone < todayDue ? 'Continue Session' : todayDone >= todayDue && todayDue > 0 ? 'All Done! Review' : 'Start Session') + '</button>' +
+          '</div>';
+
+        // 4. Coach teaser card
+        var teaser = getCoachTeaser(state.phase, a.days_in_program);
+        var lastMsg = '';
+        for (var i = state.messages.length - 1; i >= 0; i--) {
+          if (state.messages[i].role === 'coach') { lastMsg = state.messages[i].text; break; }
+        }
+        var previewHtml = lastMsg ? '<div class="home-coach-preview">' + escapeHtml(lastMsg) + '</div>' : '';
+        var coachCardHtml = '<div class="home-card home-coach-card' + teaser.style + '" id="homeCoachCard">' +
+          '<div class="home-card-label">' + teaser.label + '</div>' +
+          '<div class="home-coach-teaser">' + teaser.text + '</div>' +
+          previewHtml +
+          '<div class="home-coach-cta">Open Chat <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>' +
+          '</div>';
+
+        // 5. Progress section
+        var circumference = 2 * Math.PI * 58;
+        var offset = circumference - (a.completion_rate / 100) * circumference;
+
+        var milestoneDays = [2, 5, 7];
+        var milestonesHtml = '';
+        for (var m = 0; m < milestoneDays.length; m++) {
+          var d = milestoneDays[m];
+          var reached = a.milestones[String(d)] ? ' reached' : '';
+          milestonesHtml += '<div class="milestone' + reached + '"><div class="milestone-circle">' + d + '</div><div class="milestone-label">Day ' + d + '</div></div>';
+        }
+
+        var barsHtml = '';
+        for (var b = 0; b < a.daily_completions.length; b++) {
+          var dc = a.daily_completions[b];
+          var pct = dc.total > 0 ? (dc.completed / dc.total * 100) : 0;
+          barsHtml += '<div class="bar-group"><div class="bar-track"><div class="bar-fill" style="height:' + pct + '%"></div></div><div class="bar-label">D' + dc.day + '</div></div>';
+        }
+
+        homeView.innerHTML =
+          greetingHtml +
+          goalCardHtml +
+          actionCardHtml +
+          coachCardHtml +
+          '<div class="home-section-divider"><span>Progress</span></div>' +
+          '<div class="adherence-ring-container"><div class="adherence-ring"><svg viewBox="0 0 140 140"><circle class="ring-bg" cx="70" cy="70" r="58"/><circle class="ring-fg" cx="70" cy="70" r="58" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><div class="ring-label"><div class="ring-pct">' + Math.round(a.completion_rate) + '%</div><div class="ring-sub">Completion</div></div></div></div>' +
+          '<div class="stats-grid"><div class="stat-card"><div class="stat-value">' + a.streak + '</div><div class="stat-label">Day Streak</div></div><div class="stat-card"><div class="stat-value">' + a.total_completed + '</div><div class="stat-label">Completed</div></div><div class="stat-card"><div class="stat-value">' + Math.round(a.completion_rate) + '%</div><div class="stat-label">Rate</div></div><div class="stat-card"><div class="stat-value">' + a.current_day + '</div><div class="stat-label">Program Day</div></div></div>' +
+          '<div class="milestones-section"><div class="milestones-title">Milestones</div><div class="milestones-row">' + milestonesHtml + '</div></div>' +
+          '<div class="daily-chart-section"><div class="daily-chart-title">Daily Progress</div><div class="daily-bars">' + barsHtml + '</div></div>';
+
+        // Wire up card clicks
+        document.getElementById('homeGoalCard').addEventListener('click', function () { switchTab('chat'); });
+        document.getElementById('homeStartBtn').addEventListener('click', function (e) { e.stopPropagation(); switchTab('exercises'); });
+        document.getElementById('homeActionCard').addEventListener('click', function () { switchTab('exercises'); });
+        document.getElementById('homeCoachCard').addEventListener('click', function () { switchTab('chat'); });
+      }
+
+      function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
+      }
+
+      // ─── Settings View ───
+      function renderSettings() {
+        var phaseLabel = state.phase.replace(/_/g, ' ');
+        phaseLabel = phaseLabel.charAt(0).toUpperCase() + phaseLabel.slice(1);
+
+        settingsView.innerHTML =
+          '<div class="settings-card"><h3>Patient Information</h3>' +
+          '<div class="settings-row"><span class="settings-label">Patient ID</span><span class="settings-value">' + escapeHtml(state.patientId) + '</span></div>' +
+          '<div class="settings-row"><span class="settings-label">Current Phase</span><span class="phase-badge" data-phase="' + state.phase + '">' + phaseLabel + '</span></div>' +
+          '<div class="settings-row"><span class="settings-label">Enrolled</span><span class="settings-value">' + (state.enrollmentDate || 'N/A') + '</span></div>' +
+          '</div>' +
+          '<button class="btn-logout" id="logoutBtn">Log Out</button>';
+
+        document.getElementById('logoutBtn').addEventListener('click', function () {
+          sessionStorage.clear();
+          location.reload();
+        });
+      }
+
+      // ─── Event listeners ───
+      welcomeForm.addEventListener('submit', handleWelcome);
+      messageInput.addEventListener('input', adjustTextarea);
+      messageInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+      });
+      sendBtn.addEventListener('click', handleSend);
+
+      // Hash router
+      function handleHash() {
+        var hash = window.location.hash.replace('#', '');
+        if (hash && VIEW_TITLES[hash] && state.screen === 'app') {
+          switchTab(hash);
+        }
+      }
+      window.addEventListener('hashchange', handleHash);
+
+      // ─── Session restore ───
+      var savedId = sessionStorage.getItem('healthCoachPatientId');
+      if (savedId) {
+        patientIdInput.value = savedId;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -36,7 +36,80 @@ class PatientStatusResponse(BaseModel):
     current_goal: Optional[str]
     unanswered_count: int
     last_message_at: Optional[str]
+    enrollment_date: Optional[str] = None
 
 
 class HealthResponse(BaseModel):
     status: str
+
+
+class ExerciseResponse(BaseModel):
+    exercise_id: int
+    name: str
+    description: str
+    body_part: str
+    sets: int
+    reps: int
+    hold_seconds: Optional[int] = None
+    day_number: int
+    sort_order: int
+    is_completed: bool = False
+    sets_completed: int = 0
+    difficulty: Optional[str] = None
+    feedback: Optional[str] = None
+
+
+class ExerciseProgramResponse(BaseModel):
+    patient_id: str
+    day: Optional[int] = None
+    exercises: List[ExerciseResponse]
+
+
+class ExerciseCompleteRequest(BaseModel):
+    exercise_id: int
+    date: Optional[str] = Field(None, description="ISO date string, defaults to today")
+    sets_completed: Optional[int] = None
+    difficulty: Optional[str] = Field(
+        None, description="too_easy, just_right, or too_hard"
+    )
+    feedback: Optional[str] = None
+
+
+class ExerciseCompleteResponse(BaseModel):
+    patient_id: str
+    exercise_id: int
+    completed: bool
+    date: str
+    sets_completed: int = 0
+    total_sets: int = 0
+
+
+class AdjustExerciseRequest(BaseModel):
+    difficulty: str = Field(description="too_easy or too_hard")
+    feedback: Optional[str] = None
+
+
+class AdjustExerciseResponse(BaseModel):
+    original_exercise: ExerciseResponse
+    new_exercise: ExerciseResponse
+    reasoning: str
+
+
+class DailyCompletion(BaseModel):
+    day: int
+    completed: int
+    total: int
+
+
+class AdherenceResponse(BaseModel):
+    patient_id: str
+    days_in_program: int
+    current_day: int
+    total_completed: int
+    total_due: int
+    completion_rate: float
+    streak: int
+    milestones: Dict[str, bool]
+    exercises_completed_today: int
+    exercises_due_today: int
+    daily_completions: List[DailyCompletion]

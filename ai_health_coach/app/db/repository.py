@@ -1,10 +1,10 @@
 import datetime
 from typing import List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import AuditLog, Goal, Patient
+from app.db.models import AuditLog, Exercise, ExerciseCompletion, Goal, Patient
 
 
 async def get_patient(session: AsyncSession, patient_id: str) -> Optional[Patient]:
@@ -98,3 +98,244 @@ async def get_disengaged_patients(
         )
     )
     return list(result.scalars().all())
+
+
+async def get_patient_exercises(
+    session: AsyncSession, patient_id: str, day: Optional[int] = None
+) -> List[Exercise]:
+    stmt = select(Exercise).where(
+        Exercise.patient_id == patient_id, Exercise.is_active == True
+    )
+    if day is not None:
+        stmt = stmt.where(Exercise.day_number == day)
+    stmt = stmt.order_by(Exercise.day_number, Exercise.sort_order)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_exercise_completions(
+    session: AsyncSession, patient_id: str, date: datetime.date
+) -> List[ExerciseCompletion]:
+    result = await session.execute(
+        select(ExerciseCompletion).where(
+            ExerciseCompletion.patient_id == patient_id,
+            ExerciseCompletion.completed_date == date,
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def mark_exercise_complete(
+    session: AsyncSession,
+    patient_id: str,
+    exercise_id: int,
+    date: datetime.date,
+    sets_completed: Optional[int] = None,
+    difficulty: Optional[str] = None,
+    feedback: Optional[str] = None,
+) -> ExerciseCompletion:
+    result = await session.execute(
+        select(ExerciseCompletion).where(
+            ExerciseCompletion.patient_id == patient_id,
+            ExerciseCompletion.exercise_id == exercise_id,
+            ExerciseCompletion.completed_date == date,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        if sets_completed is not None:
+            existing.sets_completed = sets_completed
+        if difficulty is not None:
+            existing.difficulty = difficulty
+        if feedback is not None:
+            existing.feedback = feedback
+        await session.commit()
+        await session.refresh(existing)
+        return existing
+    completion = ExerciseCompletion(
+        patient_id=patient_id,
+        exercise_id=exercise_id,
+        completed_date=date,
+        sets_completed=sets_completed or 0,
+        difficulty=difficulty,
+        feedback=feedback,
+    )
+    session.add(completion)
+    await session.commit()
+    await session.refresh(completion)
+    return completion
+
+
+async def unmark_exercise_complete(
+    session: AsyncSession,
+    patient_id: str,
+    exercise_id: int,
+    date: datetime.date,
+) -> None:
+    await session.execute(
+        delete(ExerciseCompletion).where(
+            ExerciseCompletion.patient_id == patient_id,
+            ExerciseCompletion.exercise_id == exercise_id,
+            ExerciseCompletion.completed_date == date,
+        )
+    )
+    await session.commit()
+
+
+async def get_adherence_stats(
+    session: AsyncSession, patient_id: str
+) -> dict:
+    patient = await get_patient(session, patient_id)
+    if not patient or not patient.enrollment_date:
+        return {
+            "days_in_program": 0,
+            "current_day": 1,
+            "total_completed": 0,
+            "total_due": 0,
+            "completion_rate": 0.0,
+            "streak": 0,
+            "milestones": {"2": False, "5": False, "7": False},
+            "exercises_completed_today": 0,
+            "exercises_due_today": 0,
+            "daily_completions": [],
+        }
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    enrollment = patient.enrollment_date
+    if enrollment.tzinfo is None:
+        enrollment = enrollment.replace(tzinfo=datetime.timezone.utc)
+    days_in_program = max((now - enrollment).days + 1, 1)
+    current_day = min(days_in_program, 7)
+
+    # Total exercises due (days completed so far)
+    due_result = await session.execute(
+        select(func.count(Exercise.exercise_id)).where(
+            Exercise.patient_id == patient_id,
+            Exercise.is_active == True,
+            Exercise.day_number <= current_day,
+        )
+    )
+    total_due = due_result.scalar() or 0
+
+    # Total completed
+    completed_result = await session.execute(
+        select(func.count(ExerciseCompletion.completion_id)).where(
+            ExerciseCompletion.patient_id == patient_id,
+        )
+    )
+    total_completed = completed_result.scalar() or 0
+
+    completion_rate = (total_completed / total_due * 100) if total_due > 0 else 0.0
+
+    # Today's stats
+    today = now.date()
+    today_exercises = await get_patient_exercises(session, patient_id, day=current_day)
+    today_completions = await get_exercise_completions(session, patient_id, today)
+    completed_ids_today = {c.exercise_id for c in today_completions}
+    exercises_due_today = len(today_exercises)
+    exercises_completed_today = sum(
+        1 for e in today_exercises if e.exercise_id in completed_ids_today
+    )
+
+    # Streak: count consecutive fully-completed days, starting from yesterday
+    # (today is still in progress so it shouldn't break the streak)
+    streak = 0
+    for d in range(current_day - 1, 0, -1):
+        check_date = today - datetime.timedelta(days=current_day - d)
+        day_exercises = await get_patient_exercises(session, patient_id, day=d)
+        if not day_exercises:
+            break
+        day_completions = await get_exercise_completions(
+            session, patient_id, check_date
+        )
+        day_completed_ids = {c.exercise_id for c in day_completions}
+        if all(e.exercise_id in day_completed_ids for e in day_exercises):
+            streak += 1
+        else:
+            break
+
+    # Milestones
+    milestones = {
+        "2": days_in_program >= 2,
+        "5": days_in_program >= 5,
+        "7": days_in_program >= 7,
+    }
+
+    # Daily completions for chart
+    daily_completions = []
+    for d in range(1, 8):
+        day_exs = await get_patient_exercises(session, patient_id, day=d)
+        check_date = today - datetime.timedelta(days=current_day - d)
+        if d <= current_day and day_exs:
+            day_comps = await get_exercise_completions(
+                session, patient_id, check_date
+            )
+            comp_ids = {c.exercise_id for c in day_comps}
+            done = sum(1 for e in day_exs if e.exercise_id in comp_ids)
+            daily_completions.append(
+                {"day": d, "completed": done, "total": len(day_exs)}
+            )
+        else:
+            daily_completions.append(
+                {"day": d, "completed": 0, "total": len(day_exs)}
+            )
+
+    return {
+        "days_in_program": days_in_program,
+        "current_day": current_day,
+        "total_completed": total_completed,
+        "total_due": total_due,
+        "completion_rate": round(completion_rate, 1),
+        "streak": streak,
+        "milestones": milestones,
+        "exercises_completed_today": exercises_completed_today,
+        "exercises_due_today": exercises_due_today,
+        "daily_completions": daily_completions,
+    }
+
+
+async def get_exercise_by_id(
+    session: AsyncSession, exercise_id: int
+) -> Optional[Exercise]:
+    result = await session.execute(
+        select(Exercise).where(Exercise.exercise_id == exercise_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def replace_exercise(
+    session: AsyncSession,
+    patient_id: str,
+    old_exercise_id: int,
+    name: str,
+    description: str,
+    body_part: str,
+    sets: int,
+    reps: int,
+    hold_seconds: Optional[int] = None,
+) -> Exercise:
+    old_exercise = await get_exercise_by_id(session, old_exercise_id)
+    if not old_exercise:
+        raise ValueError(f"Exercise {old_exercise_id} not found")
+
+    new_exercise = Exercise(
+        patient_id=patient_id,
+        name=name,
+        description=description,
+        body_part=body_part,
+        sets=sets,
+        reps=reps,
+        hold_seconds=hold_seconds,
+        day_number=old_exercise.day_number,
+        sort_order=old_exercise.sort_order,
+        is_active=True,
+    )
+    session.add(new_exercise)
+    await session.flush()
+
+    old_exercise.is_active = False
+    old_exercise.replaced_by_id = new_exercise.exercise_id
+
+    await session.commit()
+    await session.refresh(new_exercise)
+    return new_exercise
