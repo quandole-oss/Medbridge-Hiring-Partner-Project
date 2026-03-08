@@ -42,6 +42,24 @@
 - [x] Backend: get_exercise_adjustment LLM service
 - [x] Seed data updated with sets_completed values
 
+## Partial Set Completion + Day-Shifted Adjustments
+
+- [x] Three-state set tracking: empty → complete → partial → empty per set
+- [x] `set_statuses` JSON column on ExerciseCompletion model
+- [x] Partial visual: gold-bordered circle with "~" tilde in set buttons
+- [x] Progress dots reflect per-set state (filled / partial / empty)
+- [x] Frontend `ensureSetStatuses()` backward compat from `sets_completed`
+- [x] `toggleSet()` rewritten for per-set three-state cycling
+- [x] API sends/receives `set_statuses` array on complete endpoint
+- [x] Day-shifted adjustments: too_easy/too_hard targets a future day, not current
+- [x] `find_replacement_target()` with three-tier fallback (same name → same body_part → next day)
+- [x] `adjust_exercise` endpoint calculates current day and finds target on different day
+- [x] Frontend shows "Exercise Updated on Day X" with old → new names
+- [x] Current exercise card stays unchanged after adjustment
+- [x] AI context: `set_statuses` detail passed to LLM prompt for calibration
+- [x] DB migration in `init_db` for existing databases
+- [x] Seed data includes partial set completions
+
 ## Future Enhancements
 
 - [ ] Real authentication (replace hardcoded API key)

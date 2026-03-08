@@ -117,6 +117,7 @@ class ExerciseCompletion(Base):
         DateTime, server_default=func.now()
     )
     sets_completed: Mapped[int] = mapped_column(Integer, default=0)
+    set_statuses: Mapped[Optional[list]] = mapped_column(JSON, default=None)
     difficulty: Mapped[Optional[str]] = mapped_column(String, default=None)
     feedback: Mapped[Optional[str]] = mapped_column(String, default=None)
 

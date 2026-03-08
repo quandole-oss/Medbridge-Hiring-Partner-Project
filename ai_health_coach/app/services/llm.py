@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from anthropic import APIError, RateLimitError
 from langchain_anthropic import ChatAnthropic
@@ -49,7 +49,10 @@ class ExerciseAdjustment(BaseModel):
 
 
 async def get_exercise_adjustment(
-    exercise, difficulty: str, feedback: Optional[str] = None
+    exercise,
+    difficulty: str,
+    feedback: Optional[str] = None,
+    set_statuses: Optional[List[Optional[str]]] = None,
 ) -> dict:
     system_prompt = (
         "You are a physical therapist program designer. A patient has reported "
@@ -75,6 +78,16 @@ async def get_exercise_adjustment(
         exercise_info += f", Hold: {exercise.hold_seconds}s"
 
     exercise_info += f"\n\nPatient reports this exercise is: {difficulty}"
+    if set_statuses:
+        total = len(set_statuses)
+        attempted = sum(1 for s in set_statuses if s is not None)
+        complete_count = sum(1 for s in set_statuses if s == "complete")
+        partial_count = sum(1 for s in set_statuses if s == "partial")
+        labels = [s if s else "unchecked" for s in set_statuses]
+        exercise_info += (
+            f"\nSet completion detail: {total} sets - [{', '.join(labels)}] "
+            f"({attempted} attempted: {complete_count} fully complete, {partial_count} partial)"
+        )
     if feedback:
         exercise_info += f"\nPatient feedback: {feedback}"
 

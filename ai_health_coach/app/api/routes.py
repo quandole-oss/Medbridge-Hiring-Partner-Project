@@ -25,6 +25,7 @@ from app.api.schemas import (
     PatientStatusResponse,
 )
 from app.db.repository import (
+    find_replacement_target,
     get_active_goal,
     get_adherence_stats,
     get_exercise_by_id,
@@ -279,7 +280,11 @@ async def get_exercises(
 
     exercises = await get_patient_exercises(session, patient_id, day=day)
     today = datetime.date.today()
-    completions = await get_exercise_completions(session, patient_id, today)
+    if day is not None and patient.enrollment_date is not None:
+        completion_date = patient.enrollment_date.date() + datetime.timedelta(days=day - 1)
+    else:
+        completion_date = today
+    completions = await get_exercise_completions(session, patient_id, completion_date)
     completion_map = {c.exercise_id: c for c in completions}
 
     exercise_responses = []
@@ -298,6 +303,7 @@ async def get_exercises(
                 sort_order=e.sort_order,
                 is_completed=comp is not None,
                 sets_completed=comp.sets_completed if comp else 0,
+                set_statuses=comp.set_statuses if comp else None,
                 difficulty=comp.difficulty if comp else None,
                 feedback=comp.feedback if comp else None,
             )
@@ -335,8 +341,15 @@ async def toggle_exercise_complete(
         raise HTTPException(status_code=404, detail="Exercise not found")
     total_sets = exercise.sets
 
-    # If sets_completed is explicitly 0, remove completion (undo)
-    if request.sets_completed is not None and request.sets_completed == 0:
+    # Derive sets_completed from set_statuses if provided
+    effective_sets_completed = request.sets_completed
+    if request.set_statuses is not None and effective_sets_completed is None:
+        effective_sets_completed = sum(
+            1 for s in request.set_statuses if s is not None
+        )
+
+    # If all statuses are null or sets_completed is explicitly 0, remove completion
+    if effective_sets_completed is not None and effective_sets_completed == 0:
         await unmark_exercise_complete(
             session, patient_id, request.exercise_id, target_date
         )
@@ -346,6 +359,7 @@ async def toggle_exercise_complete(
             completed=False,
             date=target_date.isoformat(),
             sets_completed=0,
+            set_statuses=request.set_statuses,
             total_sets=total_sets,
         )
 
@@ -355,7 +369,8 @@ async def toggle_exercise_complete(
         patient_id,
         request.exercise_id,
         target_date,
-        sets_completed=request.sets_completed,
+        sets_completed=effective_sets_completed,
+        set_statuses=request.set_statuses,
         difficulty=request.difficulty,
         feedback=request.feedback,
     )
@@ -366,6 +381,7 @@ async def toggle_exercise_complete(
         completed=True,
         date=target_date.isoformat(),
         sets_completed=completion.sets_completed,
+        set_statuses=completion.set_statuses,
         total_sets=total_sets,
     )
 
@@ -411,23 +427,79 @@ async def adjust_exercise(
             status_code=422, detail="difficulty must be 'too_easy' or 'too_hard'"
         )
 
+    # Calculate current day from enrollment date
+    current_day = exercise.day_number
+    if patient.enrollment_date:
+        now = datetime.datetime.now(datetime.timezone.utc)
+        enrollment = patient.enrollment_date
+        if enrollment.tzinfo is None:
+            enrollment = enrollment.replace(tzinfo=datetime.timezone.utc)
+        current_day = min(max((now - enrollment).days + 1, 1), 7)
+
+    # Fetch completion data for set_statuses context
+    today = datetime.date.today()
+    completions = await get_exercise_completions(session, patient_id, today)
+    comp_map = {c.exercise_id: c for c in completions}
+    source_comp = comp_map.get(exercise_id)
+    source_set_statuses = source_comp.set_statuses if source_comp else None
+
     adjustment = await get_exercise_adjustment(
         exercise=exercise,
         difficulty=request.difficulty,
         feedback=request.feedback,
+        set_statuses=source_set_statuses,
     )
 
-    new_exercise = await replace_exercise(
-        session,
-        patient_id=patient_id,
-        old_exercise_id=exercise_id,
-        name=adjustment["name"],
-        description=adjustment["description"],
-        body_part=adjustment["body_part"],
-        sets=adjustment["sets"],
-        reps=adjustment["reps"],
-        hold_seconds=adjustment.get("hold_seconds"),
+    # Find replacement target on a different day (source stays unchanged)
+    target = await find_replacement_target(
+        session, patient_id, exercise, current_day
     )
+
+    if target:
+        target_exercise_id = target.exercise_id
+        target_day = target.day_number
+        target_exercise_name = target.name
+    else:
+        # Tier 3: create on next day
+        target_day = (current_day % 7) + 1
+        target_exercise_id = None
+        target_exercise_name = None
+
+    if target_exercise_id:
+        new_exercise = await replace_exercise(
+            session,
+            patient_id=patient_id,
+            old_exercise_id=target_exercise_id,
+            name=adjustment["name"],
+            description=adjustment["description"],
+            body_part=adjustment["body_part"],
+            sets=adjustment["sets"],
+            reps=adjustment["reps"],
+            hold_seconds=adjustment.get("hold_seconds"),
+        )
+    else:
+        # No existing target; create a new exercise on the target day
+        from app.db.models import Exercise as ExerciseModel
+
+        new_exercise = ExerciseModel(
+            patient_id=patient_id,
+            name=adjustment["name"],
+            description=adjustment["description"],
+            body_part=adjustment["body_part"],
+            sets=adjustment["sets"],
+            reps=adjustment["reps"],
+            hold_seconds=adjustment.get("hold_seconds"),
+            day_number=target_day,
+            sort_order=99,
+            is_active=True,
+        )
+        session.add(new_exercise)
+        await session.commit()
+        await session.refresh(new_exercise)
+
+    day_label = f"Day {target_day}"
+    if target_day <= current_day:
+        day_label += " (next cycle)"
 
     original_response = ExerciseResponse(
         exercise_id=exercise.exercise_id,
@@ -439,7 +511,9 @@ async def adjust_exercise(
         hold_seconds=exercise.hold_seconds,
         day_number=exercise.day_number,
         sort_order=exercise.sort_order,
-        is_completed=False,
+        is_completed=source_comp is not None,
+        sets_completed=source_comp.sets_completed if source_comp else 0,
+        set_statuses=source_set_statuses,
     )
 
     new_response = ExerciseResponse(
@@ -455,13 +529,21 @@ async def adjust_exercise(
         is_completed=False,
     )
 
+    replaced_name = target_exercise_name or f"new slot on {day_label}"
+    reasoning_with_day = (
+        f"{day_label}: {replaced_name} → {new_exercise.name}. "
+        f"{adjustment['reasoning']}"
+    )
+
     await log_audit_event(
         session,
         patient_id,
         "exercise_adjusted",
         {
-            "old_exercise_id": exercise_id,
+            "source_exercise_id": exercise_id,
+            "target_exercise_id": target.exercise_id if target else None,
             "new_exercise_id": new_exercise.exercise_id,
+            "target_day": target_day,
             "difficulty": request.difficulty,
             "reasoning": adjustment["reasoning"],
         },
@@ -470,5 +552,7 @@ async def adjust_exercise(
     return AdjustExerciseResponse(
         original_exercise=original_response,
         new_exercise=new_response,
-        reasoning=adjustment["reasoning"],
+        reasoning=reasoning_with_day,
+        target_day=target_day,
+        target_exercise_name=target_exercise_name,
     )

@@ -55,6 +55,7 @@ class ExerciseResponse(BaseModel):
     sort_order: int
     is_completed: bool = False
     sets_completed: int = 0
+    set_statuses: Optional[List[Optional[str]]] = None
     difficulty: Optional[str] = None
     feedback: Optional[str] = None
 
@@ -69,6 +70,7 @@ class ExerciseCompleteRequest(BaseModel):
     exercise_id: int
     date: Optional[str] = Field(None, description="ISO date string, defaults to today")
     sets_completed: Optional[int] = None
+    set_statuses: Optional[List[Optional[str]]] = None
     difficulty: Optional[str] = Field(
         None, description="too_easy, just_right, or too_hard"
     )
@@ -81,6 +83,7 @@ class ExerciseCompleteResponse(BaseModel):
     completed: bool
     date: str
     sets_completed: int = 0
+    set_statuses: Optional[List[Optional[str]]] = None
     total_sets: int = 0
 
 
@@ -93,6 +96,8 @@ class AdjustExerciseResponse(BaseModel):
     original_exercise: ExerciseResponse
     new_exercise: ExerciseResponse
     reasoning: str
+    target_day: Optional[int] = None
+    target_exercise_name: Optional[str] = None
 
 
 class DailyCompletion(BaseModel):

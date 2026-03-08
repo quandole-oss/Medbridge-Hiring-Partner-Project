@@ -131,9 +131,14 @@ async def mark_exercise_complete(
     exercise_id: int,
     date: datetime.date,
     sets_completed: Optional[int] = None,
+    set_statuses: Optional[list] = None,
     difficulty: Optional[str] = None,
     feedback: Optional[str] = None,
 ) -> ExerciseCompletion:
+    # Derive sets_completed from set_statuses if provided
+    if set_statuses is not None and sets_completed is None:
+        sets_completed = sum(1 for s in set_statuses if s is not None)
+
     result = await session.execute(
         select(ExerciseCompletion).where(
             ExerciseCompletion.patient_id == patient_id,
@@ -145,6 +150,8 @@ async def mark_exercise_complete(
     if existing:
         if sets_completed is not None:
             existing.sets_completed = sets_completed
+        if set_statuses is not None:
+            existing.set_statuses = set_statuses
         if difficulty is not None:
             existing.difficulty = difficulty
         if feedback is not None:
@@ -157,6 +164,7 @@ async def mark_exercise_complete(
         exercise_id=exercise_id,
         completed_date=date,
         sets_completed=sets_completed or 0,
+        set_statuses=set_statuses,
         difficulty=difficulty,
         feedback=feedback,
     )
@@ -237,7 +245,7 @@ async def get_adherence_stats(
         1 for e in today_exercises if e.exercise_id in completed_ids_today
     )
 
-    # Streak: count consecutive fully-completed days, starting from yesterday
+    # Streak: count consecutive days with at least one assigned exercise completed
     # (today is still in progress so it shouldn't break the streak)
     streak = 0
     for d in range(current_day - 1, 0, -1):
@@ -249,7 +257,7 @@ async def get_adherence_stats(
             session, patient_id, check_date
         )
         day_completed_ids = {c.exercise_id for c in day_completions}
-        if all(e.exercise_id in day_completed_ids for e in day_exercises):
+        if any(e.exercise_id in day_completed_ids for e in day_exercises):
             streak += 1
         else:
             break
@@ -301,6 +309,54 @@ async def get_exercise_by_id(
         select(Exercise).where(Exercise.exercise_id == exercise_id)
     )
     return result.scalar_one_or_none()
+
+
+async def find_replacement_target(
+    session: AsyncSession,
+    patient_id: str,
+    source_exercise: Exercise,
+    current_day: int,
+) -> Optional[Exercise]:
+    """Three-tier fallback to find a replacement target on a different day.
+
+    1. Same exercise name on a later day
+    2. Same body_part exercise on nearest future day
+    3. No match -> returns None (caller creates on next day)
+    """
+    # Tier 1: Same name on a later day (wraps around)
+    all_exercises = await get_patient_exercises(session, patient_id)
+    candidates = [
+        e for e in all_exercises
+        if e.name == source_exercise.name
+        and e.day_number != current_day
+        and e.exercise_id != source_exercise.exercise_id
+    ]
+    if candidates:
+        # Prefer future days, then wrap
+        future = [e for e in candidates if e.day_number > current_day]
+        if future:
+            future.sort(key=lambda e: e.day_number)
+            return future[0]
+        candidates.sort(key=lambda e: e.day_number)
+        return candidates[0]
+
+    # Tier 2: Same body_part on a different day
+    body_candidates = [
+        e for e in all_exercises
+        if e.body_part == source_exercise.body_part
+        and e.day_number != current_day
+        and e.exercise_id != source_exercise.exercise_id
+    ]
+    if body_candidates:
+        future = [e for e in body_candidates if e.day_number > current_day]
+        if future:
+            future.sort(key=lambda e: e.day_number)
+            return future[0]
+        body_candidates.sort(key=lambda e: e.day_number)
+        return body_candidates[0]
+
+    # Tier 3: No match
+    return None
 
 
 async def replace_exercise(

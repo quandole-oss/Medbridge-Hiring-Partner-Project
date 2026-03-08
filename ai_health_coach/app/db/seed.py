@@ -62,7 +62,7 @@ async def seed_demo_patient(session: AsyncSession) -> None:
     - Patient enrolled 5 days ago, active phase
     - A recovery goal
     - All exercises seeded
-    - Completion history: days 1-4 fully complete, day 5 partial (1/3)
+    - Completion history: varied per day (3/3, 2/3, 3/3, 1/3, 2/3)
     """
     # Check if demo patient already has exercises (fully seeded)
     ex_check = await session.execute(
@@ -132,10 +132,14 @@ async def seed_demo_patient(session: AsyncSession) -> None:
 
     today = now.date()
 
-    # Days 1-4: all exercises completed on the appropriate date
+    # Days 1-4: varied completions (streak counts if ≥1 assigned exercise done)
+    # Day 1: 3/3, Day 2: 2/3, Day 3: 3/3, Day 4: 1/3
+    completions_per_day = {1: 3, 2: 2, 3: 3, 4: 1}
     for day_num in range(1, 5):
         completed_date = today - datetime.timedelta(days=5 - day_num)
-        for ex in by_day.get(day_num, []):
+        day_exercises = by_day.get(day_num, [])
+        for ex in day_exercises[:completions_per_day[day_num]]:
+            statuses = ["complete"] * ex.sets
             completion = ExerciseCompletion(
                 patient_id=DEMO_PATIENT_ID,
                 exercise_id=ex.exercise_id,
@@ -146,18 +150,27 @@ async def seed_demo_patient(session: AsyncSession) -> None:
                     tzinfo=datetime.timezone.utc,
                 ),
                 sets_completed=ex.sets,
+                set_statuses=statuses,
             )
             session.add(completion)
 
-    # Day 5 (today): 2 out of 3 exercises completed
+    # Day 5 (today): 2 out of 3 exercises completed (one with partial sets)
     day5_exercises = by_day.get(5, [])
     for i, ex in enumerate(day5_exercises[:2]):
+        if i == 0:
+            statuses = ["complete"] * ex.sets
+        else:
+            # Second exercise: mix of complete and partial
+            statuses = ["complete", "partial"] + (
+                ["complete"] * (ex.sets - 2) if ex.sets > 2 else []
+            )
         completion = ExerciseCompletion(
             patient_id=DEMO_PATIENT_ID,
             exercise_id=ex.exercise_id,
             completed_date=today,
             completed_at=now - datetime.timedelta(minutes=45),
-            sets_completed=ex.sets,
+            sets_completed=sum(1 for s in statuses if s is not None),
+            set_statuses=statuses,
             difficulty="just_right" if i == 0 else None,
         )
         session.add(completion)
