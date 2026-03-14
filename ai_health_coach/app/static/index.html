@@ -405,10 +405,10 @@
     .exercise-card.expanded .exercise-expand { display: block; }
 
     .exercise-svg-large {
-      width: 200px; height: 200px; margin: 0 auto 12px;
+      width: 100%; max-width: 280px; height: auto; margin: 0 auto 12px;
       display: block; overflow: visible;
     }
-    .exercise-svg-large svg { width: 200px; height: 200px; display: block; overflow: visible; }
+    .exercise-svg-large svg { width: 100%; height: auto; display: block; overflow: visible; }
 
     /* ─── Exercise Instruction Sections ─── */
     .instruction-block {
@@ -423,129 +423,6 @@
     }
     .instruction-mistake .instruction-title { color: var(--error); }
 
-    /* ─── Exercise SVG Keyframe Animations ─── */
-    /* All rotations use transform-origin at the joint pivot in SVG user units.
-       SVG elements need transform-box: fill-box so transform-origin is relative
-       to the element itself, not the SVG viewport. */
-    .anim-ankle-foot {
-      transform-box: fill-box;
-      transform-origin: 0% 50%;
-      animation: anklePump 1.6s ease-in-out infinite;
-    }
-    @keyframes anklePump {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(-25deg); }
-    }
-
-    .anim-quad-leg {
-      transform-box: fill-box;
-      transform-origin: 0% 50%;
-      animation: quadPress 2s ease-in-out infinite;
-    }
-    @keyframes quadPress {
-      0%, 100% { transform: rotate(0deg); }
-      40%, 60% { transform: rotate(-8deg); }
-    }
-
-    .anim-heel-shin {
-      transform-box: fill-box;
-      transform-origin: 0% 50%;
-      animation: heelSlide 2.2s ease-in-out infinite;
-    }
-    @keyframes heelSlide {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(-28deg); }
-    }
-
-    .anim-hamstring-trunk {
-      transform-box: fill-box;
-      transform-origin: 50% 100%;
-      animation: hamstringLean 2.5s ease-in-out infinite;
-    }
-    @keyframes hamstringLean {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(12deg); }
-    }
-
-    .anim-calf-heel {
-      transform-box: fill-box;
-      transform-origin: 50% 0%;
-      animation: calfRaise 1.8s ease-in-out infinite;
-    }
-    @keyframes calfRaise {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(-18deg); }
-    }
-
-    .anim-leg-raise {
-      transform-box: fill-box;
-      transform-origin: 0% 50%;
-      animation: legRaise 2.4s ease-in-out infinite;
-    }
-    @keyframes legRaise {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(-22deg); }
-    }
-
-    .anim-bridge-torso {
-      transform-box: fill-box;
-      transform-origin: 100% 100%;
-      animation: bridgeLift 2.2s ease-in-out infinite;
-    }
-    @keyframes bridgeLift {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(-18deg); }
-    }
-
-    .anim-hip-abduct {
-      transform-box: fill-box;
-      transform-origin: 0% 0%;
-      animation: hipAbduct 2.4s ease-in-out infinite;
-    }
-    @keyframes hipAbduct {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(-16deg); }
-    }
-
-    .anim-balance-arm {
-      transform-box: fill-box;
-      transform-origin: 0% 0%;
-      animation: balanceArm 2s ease-in-out infinite;
-    }
-    @keyframes balanceArm {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(14deg); }
-    }
-
-    .anim-squat-torso {
-      transform-box: fill-box;
-      transform-origin: 50% 0%;
-      animation: squatDip 2.5s ease-in-out infinite;
-    }
-    @keyframes squatDip {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(10deg); }
-    }
-
-    .anim-stepup-leg {
-      transform-box: fill-box;
-      transform-origin: 0% 0%;
-      animation: stepUpLift 2s ease-in-out infinite;
-    }
-    @keyframes stepUpLift {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(-20deg); }
-    }
-
-    .anim-stretch-arm {
-      transform-box: fill-box;
-      transform-origin: 50% 100%;
-      animation: stretchReach 2.5s ease-in-out infinite;
-    }
-    @keyframes stretchReach {
-      0%, 100% { transform: rotate(0deg); }
-      50%       { transform: rotate(10deg); }
-    }
 
     .exercise-divider {
       height: 1px; background: var(--border); margin: 12px 0;
@@ -1556,207 +1433,361 @@
       // Standing exercises: front view, head top, ground at y=58.
       var exerciseSvgs = {
 
-        // ANKLE PUMPS — lying, foot pumps up/down from ankle joint (x=54,y=50)
-        ankle: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
-          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
-          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
-          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<line x1="30" y1="50" x2="44" y2="50" stroke-width="2"/>'
-          + '<circle cx="44" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<line x1="44" y1="50" x2="54" y2="50" stroke-width="2"/>'
-          + '<circle cx="54" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<g class="anim-ankle-foot"><line x1="54" y1="50" x2="62" y2="47" stroke="#F5A623" stroke-width="2"/></g>'
+        // ── ANKLE PUMPS ──
+        // Lying flat on back, side view. Legs to the right.
+        // Foot shown dorsiflexed (toes up). Gold ring on ankle.
+        ankle:
+          '<svg viewBox="0 0 120 80" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          // bed/mat
+          + '<rect x="4" y="62" width="112" height="5" rx="2" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.8"/>'
+          // pillow under head
+          + '<ellipse cx="14" cy="60" rx="10" ry="4" fill="#E8E5DE" stroke="#D4D0C8" stroke-width="0.8"/>'
+          // head
+          + '<circle cx="14" cy="54" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // neck
+          + '<line x1="14" y1="61" x2="14" y2="65" stroke-width="1.8"/>'
+          // torso lying flat
+          + '<line x1="14" y1="65" x2="52" y2="65" stroke-width="3"/>'
+          // arm resting on torso
+          + '<line x1="28" y1="65" x2="32" y2="58" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="52" cy="65" r="2" fill="#1B365D"/>'
+          // thigh
+          + '<line x1="52" y1="65" x2="80" y2="65" stroke-width="2.5"/>'
+          // knee
+          + '<circle cx="80" cy="65" r="2" fill="#1B365D"/>'
+          // shin
+          + '<line x1="80" y1="65" x2="100" y2="65" stroke-width="2.2"/>'
+          // ankle gold ring (target)
+          + '<circle cx="100" cy="65" r="6" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="100" cy="65" r="2.5" fill="#F5A623"/>'
+          // foot dorsiflexed — toes pointing up
+          + '<line x1="100" y1="65" x2="114" y2="52" stroke="#1B365D" stroke-width="2.2"/>'
+          + '<line x1="114" y1="52" x2="116" y2="56" stroke="#1B365D" stroke-width="1.5"/>'
           + '</svg>',
 
-        // QUAD SETS — lying, straight leg presses flat (knee joint x=44,y=50)
-        quad_set: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
-          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
-          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
-          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<line x1="30" y1="50" x2="44" y2="50" stroke-width="2"/>'
-          + '<circle cx="44" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<g class="anim-quad-leg"><line x1="44" y1="50" x2="60" y2="50" stroke="#F5A623" stroke-width="2"/></g>'
+        // ── QUAD SETS ──
+        // Lying flat. Small towel roll under knee. Leg fully straight.
+        // Gold ring on knee/quad area.
+        quad_set:
+          '<svg viewBox="0 0 120 80" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<rect x="4" y="62" width="112" height="5" rx="2" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.8"/>'
+          + '<ellipse cx="14" cy="60" rx="10" ry="4" fill="#E8E5DE" stroke="#D4D0C8" stroke-width="0.8"/>'
+          + '<circle cx="14" cy="54" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          + '<line x1="14" y1="61" x2="14" y2="65" stroke-width="1.8"/>'
+          + '<line x1="14" y1="65" x2="52" y2="65" stroke-width="3"/>'
+          + '<line x1="28" y1="65" x2="32" y2="58" stroke-width="1.8"/>'
+          + '<circle cx="52" cy="65" r="2" fill="#1B365D"/>'
+          // full straight leg
+          + '<line x1="52" y1="65" x2="108" y2="65" stroke-width="2.5"/>'
+          // towel roll under knee
+          + '<ellipse cx="74" cy="66" rx="7" ry="3" fill="#E8E5DE" stroke="#D4D0C8" stroke-width="0.8"/>'
+          // knee gold ring (target)
+          + '<circle cx="74" cy="65" r="7" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="74" cy="65" r="2.5" fill="#F5A623"/>'
+          // foot
+          + '<line x1="108" y1="65" x2="116" y2="60" stroke-width="1.8"/>'
           + '</svg>',
 
-        // HEEL SLIDES — lying, shin rotates toward buttocks from knee joint (x=30,y=50)
-        heel_slide: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
-          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
-          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
-          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<g class="anim-heel-shin"><line x1="30" y1="50" x2="52" y2="50" stroke="#F5A623" stroke-width="2"/><circle cx="52" cy="50" r="0.8" fill="#F5A623"/></g>'
+        // ── HEEL SLIDES ──
+        // Lying flat. One knee bent ~70°, heel pulled toward buttocks.
+        // Gold ring on knee.
+        heel_slide:
+          '<svg viewBox="0 0 120 80" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<rect x="4" y="62" width="112" height="5" rx="2" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.8"/>'
+          + '<ellipse cx="14" cy="60" rx="10" ry="4" fill="#E8E5DE" stroke="#D4D0C8" stroke-width="0.8"/>'
+          + '<circle cx="14" cy="54" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          + '<line x1="14" y1="61" x2="14" y2="65" stroke-width="1.8"/>'
+          + '<line x1="14" y1="65" x2="52" y2="65" stroke-width="3"/>'
+          + '<line x1="28" y1="65" x2="32" y2="58" stroke-width="1.8"/>'
+          + '<circle cx="52" cy="65" r="2" fill="#1B365D"/>'
+          // thigh flat
+          + '<line x1="52" y1="65" x2="76" y2="65" stroke-width="2.5"/>'
+          // knee gold ring
+          + '<circle cx="76" cy="65" r="7" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="76" cy="65" r="2.5" fill="#F5A623"/>'
+          // shin bent up ~70°
+          + '<line x1="76" y1="65" x2="86" y2="38" stroke-width="2.2"/>'
+          // foot
+          + '<line x1="86" y1="38" x2="96" y2="42" stroke-width="1.8"/>'
           + '</svg>',
 
-        // HAMSTRING STRETCH — seated, trunk leans forward from hip (x=24,y=54)
-        hamstring: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<rect x="2" y="55" width="22" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
-          + '<line x1="24" y1="54" x2="56" y2="54" stroke-width="2"/>'
-          + '<circle cx="40" cy="54" r="0.8" fill="#1B365D"/>'
-          + '<line x1="56" y1="54" x2="62" y2="52" stroke-width="1.8"/>'
-          + '<circle cx="24" cy="54" r="0.8" fill="#1B365D"/>'
-          + '<g class="anim-hamstring-trunk">'
-          +   '<line x1="24" y1="54" x2="20" y2="22" stroke-width="2.5"/>'
-          +   '<circle cx="18" cy="16" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          +   '<circle cx="22" cy="36" r="0.8" fill="#1B365D"/>'
-          +   '<line x1="22" y1="36" x2="38" y2="50" stroke="#F5A623" stroke-width="1.8"/>'
-          + '</g>'
+        // ── HAMSTRING STRETCH ──
+        // Seated on edge of chair. One leg extended straight.
+        // Trunk leaning slightly forward. Gold stripe on back of thigh.
+        hamstring:
+          '<svg viewBox="0 0 110 90" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          // floor
+          + '<line x1="4" y1="84" x2="106" y2="84" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // chair seat
+          + '<rect x="6" y="70" width="32" height="8" rx="3" fill="#E8E5DE" stroke="#D4D0C8" stroke-width="1"/>'
+          // chair back
+          + '<line x1="8" y1="70" x2="8" y2="50" stroke="#D4D0C8" stroke-width="2"/>'
+          // hip on seat
+          + '<circle cx="38" cy="70" r="2" fill="#1B365D"/>'
+          // extended leg (straight out)
+          + '<line x1="38" y1="72" x2="96" y2="72" stroke-width="2.5"/>'
+          // knee joint
+          + '<circle cx="66" cy="72" r="2" fill="#1B365D"/>'
+          // gold hamstring highlight on thigh (target)
+          + '<line x1="40" y1="72" x2="66" y2="72" stroke="#F5A623" stroke-width="5" stroke-opacity="0.6" stroke-linecap="round"/>'
+          // foot
+          + '<line x1="96" y1="72" x2="104" y2="68" stroke-width="1.8"/>'
+          // torso leaning forward
+          + '<line x1="38" y1="70" x2="32" y2="36" stroke-width="3"/>'
+          // head
+          + '<circle cx="30" cy="28" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // arm reaching toward foot
+          + '<line x1="34" y1="52" x2="60" y2="68" stroke-width="1.8"/>'
           + '</svg>',
 
-        // CALF RAISES — standing, both feet rise from ankle joints (x=26,y=56 and x=38,y=56)
-        calf: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
-          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/>'
-          + '<line x1="32" y1="16" x2="42" y2="24" stroke-width="1.8"/>'
-          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="32" x2="28" y2="48" stroke-width="2"/>'
-          + '<circle cx="28" cy="48" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="32" x2="36" y2="48" stroke-width="2"/>'
-          + '<circle cx="36" cy="48" r="0.8" fill="#1B365D"/>'
-          + '<g class="anim-calf-heel">'
-          +   '<line x1="28" y1="48" x2="26" y2="60" stroke="#F5A623" stroke-width="2"/>'
-          +   '<line x1="36" y1="48" x2="38" y2="60" stroke="#F5A623" stroke-width="2"/>'
-          + '</g>'
+        // ── CALF RAISES ──
+        // Standing, risen onto toes. Gold on both calves.
+        calf:
+          '<svg viewBox="0 0 70 100" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          // ground
+          + '<line x1="4" y1="94" x2="66" y2="94" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // head
+          + '<circle cx="35" cy="10" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // torso
+          + '<line x1="35" y1="17" x2="35" y2="46" stroke-width="3"/>'
+          // arms slightly out
+          + '<line x1="35" y1="26" x2="22" y2="38" stroke-width="1.8"/>'
+          + '<line x1="35" y1="26" x2="48" y2="38" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="35" cy="46" r="2" fill="#1B365D"/>'
+          // left thigh
+          + '<line x1="35" y1="46" x2="30" y2="66" stroke-width="2.5"/>'
+          // left knee
+          + '<circle cx="30" cy="66" r="2" fill="#1B365D"/>'
+          // right thigh
+          + '<line x1="35" y1="46" x2="40" y2="66" stroke-width="2.5"/>'
+          // right knee
+          + '<circle cx="40" cy="66" r="2" fill="#1B365D"/>'
+          // left calf — gold (target)
+          + '<line x1="30" y1="66" x2="26" y2="82" stroke="#F5A623" stroke-width="3.5"/>'
+          // right calf — gold
+          + '<line x1="40" y1="66" x2="44" y2="82" stroke="#F5A623" stroke-width="3.5"/>'
+          // left foot — on toes
+          + '<line x1="26" y1="82" x2="22" y2="88" stroke-width="2"/>'
+          + '<line x1="22" y1="88" x2="30" y2="90" stroke-width="2"/>'
+          // right foot — on toes
+          + '<line x1="44" y1="82" x2="48" y2="88" stroke-width="2"/>'
+          + '<line x1="48" y1="88" x2="40" y2="90" stroke-width="2"/>'
           + '</svg>',
 
-        // STRAIGHT LEG RAISES — lying, whole leg lifts from hip joint (x=30,y=50)
-        leg_raise: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
-          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
-          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
-          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<line x1="30" y1="50" x2="50" y2="50" stroke-width="2"/>'
-          + '<circle cx="40" cy="50" r="0.8" fill="#1B365D"/>'
-          + '<line x1="50" y1="50" x2="56" y2="48" stroke-width="1.8"/>'
-          + '<g class="anim-leg-raise">'
-          +   '<line x1="30" y1="50" x2="54" y2="50" stroke="#F5A623" stroke-width="2"/>'
-          +   '<circle cx="54" cy="50" r="0.8" fill="#F5A623"/>'
-          + '</g>'
+        // ── STRAIGHT LEG RAISES ──
+        // Lying flat. One knee bent (support), other leg raised ~30°.
+        // Gold ring on hip/quad.
+        leg_raise:
+          '<svg viewBox="0 0 120 80" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<rect x="4" y="62" width="112" height="5" rx="2" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.8"/>'
+          + '<ellipse cx="14" cy="60" rx="10" ry="4" fill="#E8E5DE" stroke="#D4D0C8" stroke-width="0.8"/>'
+          + '<circle cx="14" cy="54" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          + '<line x1="14" y1="61" x2="14" y2="65" stroke-width="1.8"/>'
+          + '<line x1="14" y1="65" x2="52" y2="65" stroke-width="3"/>'
+          + '<line x1="28" y1="65" x2="32" y2="58" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="52" cy="65" r="2" fill="#1B365D"/>'
+          // gold hip ring (target)
+          + '<circle cx="52" cy="65" r="7" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="52" cy="65" r="2.5" fill="#F5A623"/>'
+          // bent support leg
+          + '<line x1="52" y1="65" x2="70" y2="65" stroke-width="2.5"/>'
+          + '<circle cx="70" cy="65" r="2" fill="#1B365D"/>'
+          + '<line x1="70" y1="65" x2="76" y2="76" stroke-width="2.2"/>'
+          + '<line x1="76" y1="76" x2="86" y2="76" stroke-width="1.8"/>'
+          // raised straight leg ~30°
+          + '<line x1="52" y1="65" x2="88" y2="50" stroke-width="2.5"/>'
+          + '<circle cx="88" cy="50" r="2" fill="#1B365D"/>'
+          + '<line x1="88" y1="50" x2="98" y2="48" stroke-width="1.8"/>'
           + '</svg>',
 
-        // GLUTE BRIDGE — lying, torso+hips lift from shoulder pivot (x=16,y=54)
-        bridge: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="2" y1="56" x2="62" y2="56" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<circle cx="6" cy="50" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="10" y1="52" x2="16" y2="54" stroke-width="2.5"/>'
-          + '<circle cx="12" cy="53" r="0.8" fill="#1B365D"/>'
-          + '<line x1="12" y1="53" x2="10" y2="56" stroke-width="1.8"/>'
-          + '<circle cx="44" cy="48" r="0.8" fill="#1B365D"/>'
-          + '<line x1="44" y1="48" x2="48" y2="56" stroke-width="2"/>'
-          + '<line x1="48" y1="56" x2="52" y2="56" stroke-width="1.8"/>'
-          + '<g class="anim-bridge-torso">'
-          +   '<line x1="16" y1="54" x2="34" y2="36" stroke="#F5A623" stroke-width="2.5"/>'
-          +   '<circle cx="34" cy="36" r="0.8" fill="#F5A623"/>'
-          +   '<line x1="34" y1="36" x2="44" y2="48" stroke="#F5A623" stroke-width="2"/>'
-          + '</g>'
+        // ── GLUTE BRIDGE ──
+        // Lying on back, knees bent, hips lifted.
+        // Gold ring on glute/hip area.
+        bridge:
+          '<svg viewBox="0 0 120 80" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          // floor
+          + '<line x1="4" y1="72" x2="116" y2="72" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // mat
+          + '<rect x="4" y="68" width="112" height="4" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
+          // head on floor
+          + '<circle cx="12" cy="62" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // upper back flat
+          + '<line x1="19" y1="68" x2="36" y2="70" stroke-width="3"/>'
+          // arm on floor
+          + '<line x1="26" y1="69" x2="24" y2="76" stroke-width="1.8"/>'
+          // torso lifted (back to hip)
+          + '<line x1="36" y1="70" x2="62" y2="46" stroke-width="3"/>'
+          // hip gold ring (target)
+          + '<circle cx="62" cy="46" r="8" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="62" cy="46" r="3" fill="#F5A623"/>'
+          // thigh down to knee
+          + '<line x1="62" y1="46" x2="80" y2="68" stroke-width="2.5"/>'
+          // knee
+          + '<circle cx="80" cy="68" r="2" fill="#1B365D"/>'
+          // shin (foot flat on floor)
+          + '<line x1="80" y1="68" x2="86" y2="70" stroke-width="2.2"/>'
           + '</svg>',
 
-        // HIP ABDUCTION — standing, leg lifts sideways from hip joint (x=32,y=32)
-        hip_abduction: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
-          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/>'
-          + '<line x1="32" y1="16" x2="42" y2="24" stroke-width="1.8"/>'
-          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="32" x2="28" y2="48" stroke-width="2"/>'
-          + '<circle cx="28" cy="48" r="0.8" fill="#1B365D"/>'
-          + '<line x1="28" y1="48" x2="26" y2="60" stroke-width="2"/>'
-          + '<g class="anim-hip-abduct">'
-          +   '<line x1="32" y1="32" x2="44" y2="50" stroke="#F5A623" stroke-width="2"/>'
-          +   '<circle cx="44" cy="50" r="0.8" fill="#F5A623"/>'
-          +   '<line x1="44" y1="50" x2="48" y2="60" stroke="#F5A623" stroke-width="1.8"/>'
-          + '</g>'
+        // ── HIP ABDUCTION ──
+        // Standing on one leg, other leg lifted out to the side ~30°.
+        // Gold ring on outer hip.
+        hip_abduction:
+          '<svg viewBox="0 0 90 100" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="4" y1="92" x2="86" y2="92" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // head
+          + '<circle cx="38" cy="10" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // torso
+          + '<line x1="38" y1="17" x2="38" y2="46" stroke-width="3"/>'
+          // arms out for balance
+          + '<line x1="38" y1="28" x2="22" y2="40" stroke-width="1.8"/>'
+          + '<line x1="38" y1="28" x2="54" y2="40" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="38" cy="46" r="2" fill="#1B365D"/>'
+          // gold hip ring (target)
+          + '<circle cx="38" cy="46" r="8" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="38" cy="46" r="3" fill="#F5A623"/>'
+          // support leg straight down
+          + '<line x1="38" y1="46" x2="34" y2="68" stroke-width="2.5"/>'
+          + '<circle cx="34" cy="68" r="2" fill="#1B365D"/>'
+          + '<line x1="34" y1="68" x2="32" y2="92" stroke-width="2.2"/>'
+          // abducted leg — out to right ~35°
+          + '<line x1="38" y1="46" x2="60" y2="66" stroke-width="2.5"/>'
+          + '<circle cx="60" cy="66" r="2" fill="#1B365D"/>'
+          + '<line x1="60" y1="66" x2="68" y2="86" stroke-width="2.2"/>'
           + '</svg>',
 
-        // SINGLE LEG BALANCE — standing, free arm sways for balance (x=32,y=16)
-        balance: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
-          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="16" x2="20" y2="24" stroke-width="1.8"/>'
-          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="32" x2="30" y2="48" stroke-width="2"/>'
-          + '<circle cx="30" cy="48" r="0.8" fill="#1B365D"/>'
-          + '<line x1="30" y1="48" x2="28" y2="60" stroke-width="2"/>'
-          + '<g class="anim-balance-arm">'
-          +   '<line x1="32" y1="16" x2="46" y2="26" stroke="#F5A623" stroke-width="1.8"/>'
-          + '</g>'
+        // ── SINGLE LEG BALANCE ──
+        // Standing on one leg, other leg bent and lifted.
+        // Arms out. Gold ring on ankle of standing leg.
+        balance:
+          '<svg viewBox="0 0 70 100" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="4" y1="94" x2="66" y2="94" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // head
+          + '<circle cx="34" cy="10" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // torso
+          + '<line x1="34" y1="17" x2="34" y2="46" stroke-width="3"/>'
+          // arms wide for balance
+          + '<line x1="34" y1="28" x2="14" y2="40" stroke-width="1.8"/>'
+          + '<line x1="34" y1="28" x2="54" y2="40" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="34" cy="46" r="2" fill="#1B365D"/>'
+          // support leg
+          + '<line x1="34" y1="46" x2="30" y2="68" stroke-width="2.5"/>'
+          + '<circle cx="30" cy="68" r="2" fill="#1B365D"/>'
+          + '<line x1="30" y1="68" x2="28" y2="92" stroke-width="2.2"/>'
+          // ankle gold ring (target — proprioception)
+          + '<circle cx="28" cy="92" r="6" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="28" cy="92" r="2.5" fill="#F5A623"/>'
+          // lifted leg — thigh forward, shin hanging
+          + '<line x1="34" y1="46" x2="46" y2="64" stroke-width="2.5"/>'
+          + '<circle cx="46" cy="64" r="2" fill="#1B365D"/>'
+          + '<line x1="46" y1="64" x2="42" y2="80" stroke-width="2.2"/>'
           + '</svg>',
 
-        // WALL SQUATS — standing against wall, knees bend (torso stays, thighs rotate from hip x=32,y=32)
-        squat: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<line x1="54" y1="4" x2="54" y2="60" stroke="#D4D0C8" stroke-width="1.5"/>'
-          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
-          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
-          + '<line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/>'
-          + '<line x1="32" y1="16" x2="44" y2="22" stroke-width="1.8"/>'
-          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
-          + '<g class="anim-squat-torso">'
-          +   '<line x1="32" y1="32" x2="28" y2="48" stroke="#F5A623" stroke-width="2"/>'
-          +   '<circle cx="28" cy="48" r="0.8" fill="#F5A623"/>'
-          +   '<line x1="28" y1="48" x2="26" y2="60" stroke="#F5A623" stroke-width="2"/>'
-          + '</g>'
+        // ── WALL SQUATS ──
+        // Back flat against wall, knees bent ~45°.
+        // Gold rings on both knees.
+        squat:
+          '<svg viewBox="0 0 90 100" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          // ground
+          + '<line x1="4" y1="92" x2="86" y2="92" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // wall on right
+          + '<line x1="78" y1="4" x2="78" y2="92" stroke="#D4D0C8" stroke-width="3"/>'
+          // head against wall
+          + '<circle cx="66" cy="14" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // torso vertical against wall
+          + '<line x1="68" y1="21" x2="68" y2="56" stroke-width="3"/>'
+          // arms on thighs
+          + '<line x1="68" y1="36" x2="58" y2="56" stroke-width="1.8"/>'
+          + '<line x1="68" y1="36" x2="74" y2="56" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="68" cy="56" r="2" fill="#1B365D"/>'
+          // left thigh angled forward (squat)
+          + '<line x1="68" y1="56" x2="40" y2="72" stroke-width="2.5"/>'
+          // left knee gold ring
+          + '<circle cx="40" cy="72" r="7" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="40" cy="72" r="2.5" fill="#F5A623"/>'
+          // left shin vertical
+          + '<line x1="40" y1="72" x2="38" y2="92" stroke-width="2.2"/>'
+          // right thigh
+          + '<line x1="68" y1="56" x2="58" y2="72" stroke-width="2.5"/>'
+          // right knee gold ring
+          + '<circle cx="58" cy="72" r="7" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="58" cy="72" r="2.5" fill="#F5A623"/>'
+          // right shin vertical
+          + '<line x1="58" y1="72" x2="56" y2="92" stroke-width="2.2"/>'
           + '</svg>',
 
-        // STEP-UPS — stepping leg lifts from hip joint (x=22,y=32)
-        step_up: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<rect x="28" y="46" width="22" height="14" rx="2" fill="#F0EDE8" stroke="#D4D0C8"/>'
-          + '<circle cx="22" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          + '<line x1="22" y1="12.5" x2="22" y2="32" stroke-width="2.5"/>'
-          + '<circle cx="22" cy="16" r="0.8" fill="#1B365D"/>'
-          + '<line x1="22" y1="16" x2="14" y2="24" stroke-width="1.8"/>'
-          + '<line x1="22" y1="16" x2="30" y2="22" stroke-width="1.8"/>'
-          + '<circle cx="22" cy="32" r="0.8" fill="#1B365D"/>'
-          + '<line x1="22" y1="32" x2="18" y2="48" stroke-width="2"/>'
-          + '<circle cx="18" cy="48" r="0.8" fill="#1B365D"/>'
-          + '<line x1="18" y1="48" x2="16" y2="60" stroke-width="2"/>'
-          + '<g class="anim-stepup-leg">'
-          +   '<line x1="22" y1="32" x2="34" y2="40" stroke="#F5A623" stroke-width="2"/>'
-          +   '<circle cx="34" cy="40" r="0.8" fill="#F5A623"/>'
-          +   '<line x1="34" y1="40" x2="36" y2="46" stroke="#F5A623" stroke-width="2"/>'
-          + '</g>'
+        // ── STEP-UPS ──
+        // One foot on step box, other leg stepping up.
+        // Gold ring on knee of stepping leg.
+        step_up:
+          '<svg viewBox="0 0 100 100" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          // ground
+          + '<line x1="4" y1="92" x2="96" y2="92" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // step box
+          + '<rect x="50" y="68" width="40" height="24" rx="3" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="1.2"/>'
+          // head
+          + '<circle cx="34" cy="10" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          // torso
+          + '<line x1="34" y1="17" x2="34" y2="46" stroke-width="3"/>'
+          // arms
+          + '<line x1="34" y1="28" x2="20" y2="40" stroke-width="1.8"/>'
+          + '<line x1="34" y1="28" x2="48" y2="38" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="34" cy="46" r="2" fill="#1B365D"/>'
+          // support leg on ground
+          + '<line x1="34" y1="46" x2="28" y2="68" stroke-width="2.5"/>'
+          + '<circle cx="28" cy="68" r="2" fill="#1B365D"/>'
+          + '<line x1="28" y1="68" x2="26" y2="92" stroke-width="2.2"/>'
+          // stepping leg — thigh lifted, foot on step
+          + '<line x1="34" y1="46" x2="54" y2="58" stroke-width="2.5"/>'
+          // knee gold ring
+          + '<circle cx="54" cy="58" r="7" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="54" cy="58" r="2.5" fill="#F5A623"/>'
+          // shin down to step surface
+          + '<line x1="54" y1="58" x2="62" y2="68" stroke-width="2.2"/>'
           + '</svg>',
 
-        // PIRIFORMIS / STRETCH — seated, trunk leans forward from hip (x=22,y=54)
-        stretch: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-          + '<line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/>'
-          + '<rect x="10" y="55" width="50" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
-          + '<line x1="22" y1="54" x2="56" y2="54" stroke-width="2"/>'
-          + '<circle cx="38" cy="54" r="0.8" fill="#1B365D"/>'
-          + '<line x1="56" y1="54" x2="62" y2="52" stroke-width="1.8"/>'
-          + '<circle cx="22" cy="54" r="0.8" fill="#1B365D"/>'
-          + '<g class="anim-stretch-arm">'
-          +   '<line x1="22" y1="54" x2="18" y2="18" stroke-width="2.5"/>'
-          +   '<circle cx="16" cy="12" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
-          +   '<circle cx="20" cy="32" r="0.8" fill="#1B365D"/>'
-          +   '<line x1="20" y1="32" x2="36" y2="46" stroke="#F5A623" stroke-width="1.8"/>'
-          + '</g>'
+        // ── PIRIFORMIS STRETCH ──
+        // Lying on back, figure-4: ankle crossed over opposite knee.
+        // Gold ring on outer hip/glute.
+        stretch:
+          '<svg viewBox="0 0 120 80" fill="none" stroke="#1B365D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+          // mat
+          + '<rect x="4" y="66" width="112" height="5" rx="2" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.8"/>'
+          + '<ellipse cx="14" cy="64" rx="10" ry="4" fill="#E8E5DE" stroke="#D4D0C8" stroke-width="0.8"/>'
+          // head
+          + '<circle cx="14" cy="56" r="7" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.8"/>'
+          + '<line x1="14" y1="63" x2="14" y2="68" stroke-width="1.8"/>'
+          // torso
+          + '<line x1="14" y1="68" x2="48" y2="70" stroke-width="3"/>'
+          // arm
+          + '<line x1="28" y1="69" x2="26" y2="76" stroke-width="1.8"/>'
+          // hip
+          + '<circle cx="48" cy="70" r="2" fill="#1B365D"/>'
+          // gold hip/glute ring (target)
+          + '<circle cx="48" cy="70" r="8" fill="none" stroke="#F5A623" stroke-width="2.5"/>'
+          + '<circle cx="48" cy="70" r="3" fill="#F5A623"/>'
+          // bottom leg straight on floor
+          + '<line x1="48" y1="70" x2="90" y2="70" stroke-width="2.5"/>'
+          + '<circle cx="90" cy="70" r="2" fill="#1B365D"/>'
+          + '<line x1="90" y1="70" x2="98" y2="66" stroke-width="1.8"/>'
+          // crossed leg: thigh up, shin crosses over bottom knee (figure-4)
+          + '<line x1="48" y1="70" x2="64" y2="52" stroke-width="2.5"/>'
+          + '<circle cx="64" cy="52" r="2" fill="#1B365D"/>'
+          + '<line x1="64" y1="52" x2="90" y2="62" stroke-width="2.2"/>'
           + '</svg>'
 
       };
 
-      function getExerciseSvg(name) {
+
+            function getExerciseSvg(name) {
         var lower = name.toLowerCase();
-        if (lower.indexOf('ankle') !== -1) return exerciseSvgs.ankle;
+        // Order matters: more specific matches first
         if (lower.indexOf('quad set') !== -1) return exerciseSvgs.quad_set;
         if (lower.indexOf('heel slide') !== -1) return exerciseSvgs.heel_slide;
         if (lower.indexOf('hamstring') !== -1) return exerciseSvgs.hamstring;
@@ -1768,6 +1799,8 @@
         if (lower.indexOf('squat') !== -1 || lower.indexOf('wall squat') !== -1) return exerciseSvgs.squat;
         if (lower.indexOf('step') !== -1) return exerciseSvgs.step_up;
         if (lower.indexOf('piriformis') !== -1 || lower.indexOf('stretch') !== -1) return exerciseSvgs.stretch;
+        // ankle pumps / ankle circles both use ankle SVG
+        if (lower.indexOf('ankle') !== -1) return exerciseSvgs.ankle;
         return exerciseSvgs.stretch;
       }
 
