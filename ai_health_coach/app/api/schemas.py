@@ -46,7 +46,11 @@ class HealthResponse(BaseModel):
 class ExerciseResponse(BaseModel):
     exercise_id: int
     name: str
-    description: str
+    description: Optional[str] = None
+    setup_instructions: Optional[str] = None
+    execution_steps: Optional[str] = None
+    form_cues: Optional[str] = None
+    common_mistakes: Optional[str] = None
     body_part: str
     sets: int
     reps: int

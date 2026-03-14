@@ -406,12 +406,145 @@
 
     .exercise-svg-large {
       width: 200px; height: 200px; margin: 0 auto 12px;
-      display: block;
+      display: block; overflow: hidden;
     }
-    .exercise-svg-large svg { width: 200px; height: 200px; display: block; }
+    .exercise-svg-large svg { width: 200px; height: 200px; display: block; overflow: hidden; }
 
-    .exercise-desc {
-      font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;
+    /* ─── Exercise Instruction Sections ─── */
+    .instruction-block {
+      margin-bottom: 10px;
+    }
+    .instruction-title {
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--navy); margin-bottom: 3px;
+    }
+    .instruction-text {
+      font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;
+    }
+    .instruction-mistake .instruction-title { color: var(--error); }
+
+    /* ─── Exercise SVG Keyframe Animations ─── */
+    /* All rotations use transform-origin at the joint pivot in SVG user units.
+       SVG elements need transform-box: fill-box so transform-origin is relative
+       to the element itself, not the SVG viewport. */
+    .anim-ankle-foot {
+      transform-box: fill-box;
+      transform-origin: 0% 50%;
+      animation: anklePump 1.6s ease-in-out infinite;
+    }
+    @keyframes anklePump {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(-25deg); }
+    }
+
+    .anim-quad-leg {
+      transform-box: fill-box;
+      transform-origin: 0% 50%;
+      animation: quadPress 2s ease-in-out infinite;
+    }
+    @keyframes quadPress {
+      0%, 100% { transform: rotate(0deg); }
+      40%, 60% { transform: rotate(-8deg); }
+    }
+
+    .anim-heel-shin {
+      transform-box: fill-box;
+      transform-origin: 0% 50%;
+      animation: heelSlide 2.2s ease-in-out infinite;
+    }
+    @keyframes heelSlide {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(-28deg); }
+    }
+
+    .anim-hamstring-trunk {
+      transform-box: fill-box;
+      transform-origin: 50% 100%;
+      animation: hamstringLean 2.5s ease-in-out infinite;
+    }
+    @keyframes hamstringLean {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(12deg); }
+    }
+
+    .anim-calf-heel {
+      transform-box: fill-box;
+      transform-origin: 50% 0%;
+      animation: calfRaise 1.8s ease-in-out infinite;
+    }
+    @keyframes calfRaise {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(-18deg); }
+    }
+
+    .anim-leg-raise {
+      transform-box: fill-box;
+      transform-origin: 0% 50%;
+      animation: legRaise 2.4s ease-in-out infinite;
+    }
+    @keyframes legRaise {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(-22deg); }
+    }
+
+    .anim-bridge-torso {
+      transform-box: fill-box;
+      transform-origin: 100% 100%;
+      animation: bridgeLift 2.2s ease-in-out infinite;
+    }
+    @keyframes bridgeLift {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(-18deg); }
+    }
+
+    .anim-hip-abduct {
+      transform-box: fill-box;
+      transform-origin: 0% 0%;
+      animation: hipAbduct 2.4s ease-in-out infinite;
+    }
+    @keyframes hipAbduct {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(-16deg); }
+    }
+
+    .anim-balance-arm {
+      transform-box: fill-box;
+      transform-origin: 0% 0%;
+      animation: balanceArm 2s ease-in-out infinite;
+    }
+    @keyframes balanceArm {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(14deg); }
+    }
+
+    .anim-squat-torso {
+      transform-box: fill-box;
+      transform-origin: 50% 0%;
+      animation: squatDip 2.5s ease-in-out infinite;
+    }
+    @keyframes squatDip {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(10deg); }
+    }
+
+    .anim-stepup-leg {
+      transform-box: fill-box;
+      transform-origin: 0% 0%;
+      animation: stepUpLift 2s ease-in-out infinite;
+    }
+    @keyframes stepUpLift {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(-20deg); }
+    }
+
+    .anim-stretch-arm {
+      transform-box: fill-box;
+      transform-origin: 50% 100%;
+      animation: stretchReach 2.5s ease-in-out infinite;
+    }
+    @keyframes stretchReach {
+      0%, 100% { transform: rotate(0deg); }
+      50%       { transform: rotate(10deg); }
     }
 
     .exercise-divider {
@@ -1422,18 +1555,203 @@
       // Lying exercises: side view, head left, feet right, bed line at y=44.
       // Standing exercises: front view, head top, ground at y=58.
       var exerciseSvgs = {
-        ankle: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/><circle cx="20" cy="50" r="0.8" fill="#1B365D"/><circle cx="30" cy="50" r="0.8" fill="#1B365D"/><line x1="30" y1="50" x2="44" y2="50" stroke-width="2"/><circle cx="44" cy="50" r="0.8" fill="#1B365D"/><line x1="44" y1="50" x2="54" y2="50" stroke-width="2"/><g style="transform-origin:54px 50px; transform:rotate(-5deg)"><line x1="54" y1="50" x2="60" y2="46" stroke="#F5A623" stroke-width="1.8"/></g></svg>',
-        quad_set: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/><circle cx="20" cy="50" r="0.8" fill="#1B365D"/><circle cx="30" cy="50" r="0.8" fill="#1B365D"/><line x1="30" y1="50" x2="44" y2="50" stroke-width="2"/><circle cx="44" cy="50" r="0.8" fill="#1B365D"/><line x1="44" y1="50" x2="58" y2="48" stroke-width="2"/><g><line x1="40" y1="44" x2="40" y2="47" stroke="#F5A623" stroke-width="1.5"/><line x1="43" y1="43" x2="43" y2="47" stroke="#F5A623" stroke-width="1.5"/><line x1="46" y1="44" x2="46" y2="47" stroke="#F5A623" stroke-width="1.5"/></g><line x1="43" y1="55" x2="43" y2="58" stroke="#F5A623" stroke-width="1.5"/><polyline points="41,57 43,59 45,57" stroke="#F5A623" stroke-width="1.5" fill="none"/></svg>',
-        heel_slide: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/><circle cx="20" cy="50" r="0.8" fill="#1B365D"/><circle cx="30" cy="50" r="0.8" fill="#1B365D"/><line x1="30" y1="50" x2="44" y2="50" stroke-width="2"/><circle cx="44" cy="50" r="0.8" fill="#1B365D"/><g style="transform-origin:44px 50px; transform:rotate(-20deg)"><line x1="44" y1="50" x2="58" y2="50" stroke="#F5A623" stroke-width="2"/></g></svg>',
-        hamstring: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/><rect x="12" y="55" width="48" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><line x1="24" y1="54" x2="54" y2="54" stroke-width="2"/><circle cx="40" cy="54" r="0.8" fill="#1B365D"/><line x1="54" y1="54" x2="60" y2="52" stroke-width="1.8"/><circle cx="24" cy="54" r="0.8" fill="#1B365D"/><g style="transform-origin:24px 54px; transform:rotate(8deg)"><line x1="24" y1="54" x2="20" y2="20" stroke-width="2.5"/><circle cx="18" cy="14" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><circle cx="22" cy="32" r="0.8" fill="#1B365D"/><line x1="22" y1="32" x2="36" y2="44" stroke="#F5A623" stroke-width="1.8"/></g></svg>',
-        calf: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><g><circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/><circle cx="32" cy="16" r="0.8" fill="#1B365D"/><line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/><line x1="32" y1="16" x2="42" y2="24" stroke-width="1.8"/><circle cx="32" cy="32" r="0.8" fill="#1B365D"/><line x1="32" y1="32" x2="28" y2="48" stroke-width="2"/><circle cx="28" cy="48" r="0.8" fill="#1B365D"/><line x1="32" y1="32" x2="36" y2="48" stroke-width="2"/><circle cx="36" cy="48" r="0.8" fill="#1B365D"/><line x1="28" y1="48" x2="26" y2="60" stroke="#F5A623" stroke-width="2"/><line x1="36" y1="48" x2="38" y2="60" stroke="#F5A623" stroke-width="2"/></g></svg>',
-        leg_raise: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/><line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/><circle cx="20" cy="50" r="0.8" fill="#1B365D"/><circle cx="30" cy="50" r="0.8" fill="#1B365D"/><line x1="30" y1="50" x2="50" y2="50" stroke-width="2"/><circle cx="40" cy="50" r="0.8" fill="#1B365D"/><line x1="50" y1="50" x2="56" y2="48" stroke-width="1.8"/><g style="transform-origin:30px 50px; transform:rotate(-15deg)"><line x1="30" y1="50" x2="50" y2="50" stroke="#F5A623" stroke-width="2"/><line x1="50" y1="50" x2="56" y2="48" stroke="#F5A623" stroke-width="1.8"/></g></svg>',
-        bridge: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="56" x2="62" y2="56" stroke="#D4D0C8" stroke-width="1"/><circle cx="6" cy="50" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="10" y1="52" x2="16" y2="54" stroke-width="2.5"/><circle cx="12" cy="53" r="0.8" fill="#1B365D"/><line x1="12" y1="53" x2="10" y2="56" stroke-width="1.8"/><line x1="16" y1="54" x2="34" y2="36" stroke-width="2.5"/><circle cx="34" cy="36" r="0.8" fill="#1B365D"/><line x1="34" y1="36" x2="44" y2="48" stroke-width="2"/><circle cx="44" cy="48" r="0.8" fill="#1B365D"/><line x1="44" y1="48" x2="48" y2="56" stroke-width="2"/><line x1="48" y1="56" x2="52" y2="56" stroke-width="1.8"/><g><line x1="34" y1="32" x2="34" y2="26" stroke="#F5A623" stroke-width="1.5"/><polyline points="32,28 34,26 36,28" stroke="#F5A623" stroke-width="1.5" fill="none"/></g></svg>',
-        hip_abduction: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/><circle cx="32" cy="16" r="0.8" fill="#1B365D"/><line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/><line x1="32" y1="16" x2="42" y2="24" stroke-width="1.8"/><circle cx="32" cy="32" r="0.8" fill="#1B365D"/><line x1="32" y1="32" x2="28" y2="48" stroke-width="2"/><circle cx="28" cy="48" r="0.8" fill="#1B365D"/><line x1="28" y1="48" x2="26" y2="60" stroke-width="2"/><g style="transform-origin:32px 32px; transform:rotate(-12deg)"><line x1="32" y1="32" x2="44" y2="50" stroke="#F5A623" stroke-width="2"/><circle cx="44" cy="50" r="0.8" fill="#F5A623"/><line x1="44" y1="50" x2="48" y2="60" stroke="#F5A623" stroke-width="1.8"/></g></svg>',
-        balance: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><g><circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/><circle cx="32" cy="16" r="0.8" fill="#1B365D"/><line x1="32" y1="16" x2="18" y2="22" stroke-width="1.8"/><line x1="32" y1="16" x2="46" y2="22" stroke-width="1.8"/><circle cx="32" cy="32" r="0.8" fill="#1B365D"/><line x1="32" y1="32" x2="32" y2="48" stroke-width="2"/><circle cx="32" cy="48" r="0.8" fill="#1B365D"/><line x1="32" y1="48" x2="30" y2="60" stroke-width="2"/><line x1="32" y1="32" x2="46" y2="42" stroke="#F5A623" stroke-width="1.8" stroke-dasharray="3 2"/></g></svg>',
-        squat: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><line x1="43" y1="4" x2="43" y2="60" stroke="#D4D0C8" stroke-width="1.5"/><g style="transform:translateY(3px)"><circle cx="35" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="37" y1="12" x2="39" y2="32" stroke-width="2.5"/><circle cx="37" cy="18" r="0.8" fill="#1B365D"/><line x1="37" y1="18" x2="27" y2="26" stroke-width="1.8"/><circle cx="39" cy="32" r="0.8" fill="#1B365D"/><line x1="39" y1="32" x2="29" y2="46" stroke-width="2"/><circle cx="29" cy="46" r="0.8" fill="#1B365D"/><line x1="29" y1="46" x2="25" y2="60" stroke-width="2"/><line x1="25" y1="60" x2="21" y2="60" stroke-width="1.8"/></g></svg>',
-        step_up: '<svg class="stepup-svg" viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line class="stepup-ground" x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/><rect class="stepup-box" x="28" y="46" width="22" height="14" rx="2" fill="#F0EDE8" stroke="#D4D0C8"/><g class="stepup-figure"><circle cx="22" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><line x1="22" y1="12.5" x2="22" y2="32" stroke-width="2.5"/><circle cx="22" cy="16" r="0.8" fill="#1B365D"/><line x1="22" y1="16" x2="14" y2="24" stroke-width="1.8"/><line x1="22" y1="16" x2="30" y2="22" stroke-width="1.8"/><circle cx="22" cy="32" r="0.8" fill="#1B365D"/><line class="stepup-stance-thigh" x1="22" y1="32" x2="18" y2="48" stroke-width="2"/><circle cx="18" cy="48" r="0.8" fill="#1B365D"/><line class="stepup-stance-shin" x1="18" y1="48" x2="16" y2="60" stroke-width="2"/><line class="stepup-step-thigh" x1="22" y1="32" x2="32" y2="38" stroke="#F5A623" stroke-width="2"/><circle cx="32" cy="38" r="0.8" fill="#F5A623"/><line class="stepup-step-shin" x1="32" y1="38" x2="34" y2="44" stroke="#F5A623" stroke-width="2"/></g></svg>',
-        stretch: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/><rect x="10" y="55" width="50" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/><line x1="22" y1="54" x2="56" y2="54" stroke-width="2"/><circle cx="38" cy="54" r="0.8" fill="#1B365D"/><line x1="56" y1="54" x2="62" y2="52" stroke-width="1.8"/><circle cx="22" cy="54" r="0.8" fill="#1B365D"/><g style="transform-origin:22px 54px; transform:rotate(8deg)"><line x1="22" y1="54" x2="18" y2="18" stroke-width="2.5"/><circle cx="16" cy="12" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/><circle cx="20" cy="30" r="0.8" fill="#1B365D"/><line x1="20" y1="30" x2="32" y2="42" stroke="#F5A623" stroke-width="1.8"/></g></svg>'
+
+        // ANKLE PUMPS — lying, foot pumps up/down from ankle joint (x=54,y=50)
+        ankle: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
+          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
+          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
+          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<line x1="30" y1="50" x2="44" y2="50" stroke-width="2"/>'
+          + '<circle cx="44" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<line x1="44" y1="50" x2="54" y2="50" stroke-width="2"/>'
+          + '<circle cx="54" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<g class="anim-ankle-foot"><line x1="54" y1="50" x2="62" y2="47" stroke="#F5A623" stroke-width="2"/></g>'
+          + '</svg>',
+
+        // QUAD SETS — lying, straight leg presses flat (knee joint x=44,y=50)
+        quad_set: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
+          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
+          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
+          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<line x1="30" y1="50" x2="44" y2="50" stroke-width="2"/>'
+          + '<circle cx="44" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<g class="anim-quad-leg"><line x1="44" y1="50" x2="60" y2="50" stroke="#F5A623" stroke-width="2"/></g>'
+          + '</svg>',
+
+        // HEEL SLIDES — lying, shin rotates toward buttocks from knee joint (x=30,y=50)
+        heel_slide: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
+          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
+          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
+          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<g class="anim-heel-shin"><line x1="30" y1="50" x2="52" y2="50" stroke="#F5A623" stroke-width="2"/><circle cx="52" cy="50" r="0.8" fill="#F5A623"/></g>'
+          + '</svg>',
+
+        // HAMSTRING STRETCH — seated, trunk leans forward from hip (x=24,y=54)
+        hamstring: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<rect x="2" y="55" width="22" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
+          + '<line x1="24" y1="54" x2="56" y2="54" stroke-width="2"/>'
+          + '<circle cx="40" cy="54" r="0.8" fill="#1B365D"/>'
+          + '<line x1="56" y1="54" x2="62" y2="52" stroke-width="1.8"/>'
+          + '<circle cx="24" cy="54" r="0.8" fill="#1B365D"/>'
+          + '<g class="anim-hamstring-trunk">'
+          +   '<line x1="24" y1="54" x2="20" y2="22" stroke-width="2.5"/>'
+          +   '<circle cx="18" cy="16" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          +   '<circle cx="22" cy="36" r="0.8" fill="#1B365D"/>'
+          +   '<line x1="22" y1="36" x2="38" y2="50" stroke="#F5A623" stroke-width="1.8"/>'
+          + '</g>'
+          + '</svg>',
+
+        // CALF RAISES — standing, both feet rise from ankle joints (x=26,y=56 and x=38,y=56)
+        calf: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
+          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/>'
+          + '<line x1="32" y1="16" x2="42" y2="24" stroke-width="1.8"/>'
+          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="32" x2="28" y2="48" stroke-width="2"/>'
+          + '<circle cx="28" cy="48" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="32" x2="36" y2="48" stroke-width="2"/>'
+          + '<circle cx="36" cy="48" r="0.8" fill="#1B365D"/>'
+          + '<g class="anim-calf-heel">'
+          +   '<line x1="28" y1="48" x2="26" y2="60" stroke="#F5A623" stroke-width="2"/>'
+          +   '<line x1="36" y1="48" x2="38" y2="60" stroke="#F5A623" stroke-width="2"/>'
+          + '</g>'
+          + '</svg>',
+
+        // STRAIGHT LEG RAISES — lying, whole leg lifts from hip joint (x=30,y=50)
+        leg_raise: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<rect x="2" y="52" width="60" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
+          + '<circle cx="8" cy="46" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="12" y1="50" x2="30" y2="50" stroke-width="2.5"/>'
+          + '<line x1="20" y1="50" x2="20" y2="44" stroke-width="1.8"/>'
+          + '<circle cx="20" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<circle cx="30" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<line x1="30" y1="50" x2="50" y2="50" stroke-width="2"/>'
+          + '<circle cx="40" cy="50" r="0.8" fill="#1B365D"/>'
+          + '<line x1="50" y1="50" x2="56" y2="48" stroke-width="1.8"/>'
+          + '<g class="anim-leg-raise">'
+          +   '<line x1="30" y1="50" x2="54" y2="50" stroke="#F5A623" stroke-width="2"/>'
+          +   '<circle cx="54" cy="50" r="0.8" fill="#F5A623"/>'
+          + '</g>'
+          + '</svg>',
+
+        // GLUTE BRIDGE — lying, torso+hips lift from shoulder pivot (x=16,y=54)
+        bridge: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="2" y1="56" x2="62" y2="56" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<circle cx="6" cy="50" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="10" y1="52" x2="16" y2="54" stroke-width="2.5"/>'
+          + '<circle cx="12" cy="53" r="0.8" fill="#1B365D"/>'
+          + '<line x1="12" y1="53" x2="10" y2="56" stroke-width="1.8"/>'
+          + '<circle cx="44" cy="48" r="0.8" fill="#1B365D"/>'
+          + '<line x1="44" y1="48" x2="48" y2="56" stroke-width="2"/>'
+          + '<line x1="48" y1="56" x2="52" y2="56" stroke-width="1.8"/>'
+          + '<g class="anim-bridge-torso">'
+          +   '<line x1="16" y1="54" x2="34" y2="36" stroke="#F5A623" stroke-width="2.5"/>'
+          +   '<circle cx="34" cy="36" r="0.8" fill="#F5A623"/>'
+          +   '<line x1="34" y1="36" x2="44" y2="48" stroke="#F5A623" stroke-width="2"/>'
+          + '</g>'
+          + '</svg>',
+
+        // HIP ABDUCTION — standing, leg lifts sideways from hip joint (x=32,y=32)
+        hip_abduction: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
+          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/>'
+          + '<line x1="32" y1="16" x2="42" y2="24" stroke-width="1.8"/>'
+          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="32" x2="28" y2="48" stroke-width="2"/>'
+          + '<circle cx="28" cy="48" r="0.8" fill="#1B365D"/>'
+          + '<line x1="28" y1="48" x2="26" y2="60" stroke-width="2"/>'
+          + '<g class="anim-hip-abduct">'
+          +   '<line x1="32" y1="32" x2="44" y2="50" stroke="#F5A623" stroke-width="2"/>'
+          +   '<circle cx="44" cy="50" r="0.8" fill="#F5A623"/>'
+          +   '<line x1="44" y1="50" x2="48" y2="60" stroke="#F5A623" stroke-width="1.8"/>'
+          + '</g>'
+          + '</svg>',
+
+        // SINGLE LEG BALANCE — standing, free arm sways for balance (x=32,y=16)
+        balance: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
+          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="16" x2="20" y2="24" stroke-width="1.8"/>'
+          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="32" x2="30" y2="48" stroke-width="2"/>'
+          + '<circle cx="30" cy="48" r="0.8" fill="#1B365D"/>'
+          + '<line x1="30" y1="48" x2="28" y2="60" stroke-width="2"/>'
+          + '<g class="anim-balance-arm">'
+          +   '<line x1="32" y1="16" x2="46" y2="26" stroke="#F5A623" stroke-width="1.8"/>'
+          + '</g>'
+          + '</svg>',
+
+        // WALL SQUATS — standing against wall, knees bend (torso stays, thighs rotate from hip x=32,y=32)
+        squat: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<line x1="54" y1="4" x2="54" y2="60" stroke="#D4D0C8" stroke-width="1.5"/>'
+          + '<circle cx="32" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="32" y1="12.5" x2="32" y2="32" stroke-width="2.5"/>'
+          + '<circle cx="32" cy="16" r="0.8" fill="#1B365D"/>'
+          + '<line x1="32" y1="16" x2="22" y2="24" stroke-width="1.8"/>'
+          + '<line x1="32" y1="16" x2="44" y2="22" stroke-width="1.8"/>'
+          + '<circle cx="32" cy="32" r="0.8" fill="#1B365D"/>'
+          + '<g class="anim-squat-torso">'
+          +   '<line x1="32" y1="32" x2="28" y2="48" stroke="#F5A623" stroke-width="2"/>'
+          +   '<circle cx="28" cy="48" r="0.8" fill="#F5A623"/>'
+          +   '<line x1="28" y1="48" x2="26" y2="60" stroke="#F5A623" stroke-width="2"/>'
+          + '</g>'
+          + '</svg>',
+
+        // STEP-UPS — stepping leg lifts from hip joint (x=22,y=32)
+        step_up: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="4" y1="60" x2="60" y2="60" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<rect x="28" y="46" width="22" height="14" rx="2" fill="#F0EDE8" stroke="#D4D0C8"/>'
+          + '<circle cx="22" cy="8" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          + '<line x1="22" y1="12.5" x2="22" y2="32" stroke-width="2.5"/>'
+          + '<circle cx="22" cy="16" r="0.8" fill="#1B365D"/>'
+          + '<line x1="22" y1="16" x2="14" y2="24" stroke-width="1.8"/>'
+          + '<line x1="22" y1="16" x2="30" y2="22" stroke-width="1.8"/>'
+          + '<circle cx="22" cy="32" r="0.8" fill="#1B365D"/>'
+          + '<line x1="22" y1="32" x2="18" y2="48" stroke-width="2"/>'
+          + '<circle cx="18" cy="48" r="0.8" fill="#1B365D"/>'
+          + '<line x1="18" y1="48" x2="16" y2="60" stroke-width="2"/>'
+          + '<g class="anim-stepup-leg">'
+          +   '<line x1="22" y1="32" x2="34" y2="40" stroke="#F5A623" stroke-width="2"/>'
+          +   '<circle cx="34" cy="40" r="0.8" fill="#F5A623"/>'
+          +   '<line x1="34" y1="40" x2="36" y2="46" stroke="#F5A623" stroke-width="2"/>'
+          + '</g>'
+          + '</svg>',
+
+        // PIRIFORMIS / STRETCH — seated, trunk leans forward from hip (x=22,y=54)
+        stretch: '<svg viewBox="0 0 64 64" fill="none" stroke="#1B365D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+          + '<line x1="2" y1="58" x2="62" y2="58" stroke="#D4D0C8" stroke-width="1"/>'
+          + '<rect x="10" y="55" width="50" height="3" rx="1" fill="#F0EDE8" stroke="#D4D0C8" stroke-width="0.5"/>'
+          + '<line x1="22" y1="54" x2="56" y2="54" stroke-width="2"/>'
+          + '<circle cx="38" cy="54" r="0.8" fill="#1B365D"/>'
+          + '<line x1="56" y1="54" x2="62" y2="52" stroke-width="1.8"/>'
+          + '<circle cx="22" cy="54" r="0.8" fill="#1B365D"/>'
+          + '<g class="anim-stretch-arm">'
+          +   '<line x1="22" y1="54" x2="18" y2="18" stroke-width="2.5"/>'
+          +   '<circle cx="16" cy="12" r="3.5" fill="#E8F4FD" stroke="#1B365D" stroke-width="1.5"/>'
+          +   '<circle cx="20" cy="32" r="0.8" fill="#1B365D"/>'
+          +   '<line x1="20" y1="32" x2="36" y2="46" stroke="#F5A623" stroke-width="1.8"/>'
+          + '</g>'
+          + '</svg>'
+
       };
 
       function getExerciseSvg(name) {
@@ -1619,13 +1937,41 @@
         svgLarge.className = 'exercise-svg-large';
         svgLarge.innerHTML = getExerciseSvg(ex.name);
 
-        // Description
-        var descEl = document.createElement('div');
-        descEl.className = 'exercise-desc';
-        descEl.textContent = ex.description;
+        // Structured instructions
+        var instructions = [
+          { key: 'setup_instructions',  label: 'Setup',          cls: '' },
+          { key: 'execution_steps',     label: 'Execution',      cls: '' },
+          { key: 'form_cues',           label: 'Form Cues',      cls: '' },
+          { key: 'common_mistakes',     label: 'Avoid',          cls: 'instruction-mistake' }
+        ];
+        // Fallback: if new fields absent, use legacy description
+        var hasStructured = ex.setup_instructions || ex.execution_steps || ex.form_cues || ex.common_mistakes;
 
         expand.appendChild(svgLarge);
-        expand.appendChild(descEl);
+
+        if (hasStructured) {
+          for (var k = 0; k < instructions.length; k++) {
+            var inst = instructions[k];
+            var val = ex[inst.key];
+            if (!val) continue;
+            var block = document.createElement('div');
+            block.className = 'instruction-block' + (inst.cls ? ' ' + inst.cls : '');
+            var title = document.createElement('div');
+            title.className = 'instruction-title';
+            title.textContent = inst.label;
+            var text = document.createElement('p');
+            text.className = 'instruction-text';
+            text.textContent = val;
+            block.appendChild(title);
+            block.appendChild(text);
+            expand.appendChild(block);
+          }
+        } else {
+          var descEl = document.createElement('div');
+          descEl.className = 'exercise-desc';
+          descEl.textContent = ex.description || '';
+          expand.appendChild(descEl);
+        }
 
         // Divider
         var div1 = document.createElement('div');
