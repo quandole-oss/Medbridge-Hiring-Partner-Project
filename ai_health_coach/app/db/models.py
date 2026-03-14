@@ -19,6 +19,38 @@ class Base(DeclarativeBase):
     pass
 
 
+class Pathway(Base):
+    __tablename__ = "pathways"
+
+    pathway_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    name: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(String)
+    total_weeks: Mapped[int] = mapped_column(Integer)
+    condition: Mapped[str] = mapped_column(String)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    weeks: Mapped[List["PathwayWeek"]] = relationship(back_populates="pathway")
+
+
+class PathwayWeek(Base):
+    __tablename__ = "pathway_weeks"
+
+    week_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    pathway_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("pathways.pathway_id")
+    )
+    week_number: Mapped[int] = mapped_column(Integer)
+    theme: Mapped[str] = mapped_column(String)
+    advancement_threshold: Mapped[float] = mapped_column(default=0.7)
+    pain_ceiling: Mapped[Optional[int]] = mapped_column(Integer, default=None)
+
+    pathway: Mapped["Pathway"] = relationship(back_populates="weeks")
+
+
 class Patient(Base):
     __tablename__ = "patients"
 
@@ -32,11 +64,18 @@ class Patient(Base):
     )
     current_phase: Mapped[str] = mapped_column(String, default="pending")
     unanswered_count: Mapped[int] = mapped_column(Integer, default=0)
+    pathway_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("pathways.pathway_id"), default=None
+    )
+    current_week: Mapped[int] = mapped_column(Integer, default=1)
 
     goals: Mapped[List["Goal"]] = relationship(back_populates="patient")
     audit_logs: Mapped[List["AuditLog"]] = relationship(back_populates="patient")
     exercises: Mapped[List["Exercise"]] = relationship(back_populates="patient")
     exercise_completions: Mapped[List["ExerciseCompletion"]] = relationship(
+        back_populates="patient"
+    )
+    outcome_reports: Mapped[List["OutcomeReport"]] = relationship(
         back_populates="patient"
     )
 
@@ -89,6 +128,7 @@ class Exercise(Base):
     reps: Mapped[int] = mapped_column(Integer, default=0)
     hold_seconds: Mapped[Optional[int]] = mapped_column(Integer, default=None)
     day_number: Mapped[int] = mapped_column(Integer)
+    week_number: Mapped[int] = mapped_column(Integer, default=1)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     replaced_by_id: Mapped[Optional[int]] = mapped_column(
@@ -126,3 +166,56 @@ class ExerciseCompletion(Base):
     feedback: Mapped[Optional[str]] = mapped_column(String, default=None)
 
     patient: Mapped["Patient"] = relationship(back_populates="exercise_completions")
+
+
+class OutcomeReport(Base):
+    __tablename__ = "outcome_reports"
+
+    report_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    patient_id: Mapped[str] = mapped_column(
+        String, ForeignKey("patients.patient_id")
+    )
+    report_date: Mapped[datetime.date] = mapped_column(Date)
+    pain_score: Mapped[int] = mapped_column(Integer)
+    function_score: Mapped[int] = mapped_column(Integer)
+    wellbeing_score: Mapped[int] = mapped_column(Integer)
+    notes: Mapped[Optional[str]] = mapped_column(String, default=None)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+    patient: Mapped["Patient"] = relationship(back_populates="outcome_reports")
+
+
+class EducationContent(Base):
+    __tablename__ = "education_content"
+
+    content_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    title: Mapped[str] = mapped_column(String)
+    body: Mapped[str] = mapped_column(String)
+    content_type: Mapped[str] = mapped_column(String)  # article, tip, faq
+    body_part: Mapped[Optional[str]] = mapped_column(String, default=None)
+    day_theme: Mapped[Optional[str]] = mapped_column(String, default=None)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class EducationView(Base):
+    __tablename__ = "education_views"
+
+    view_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    patient_id: Mapped[str] = mapped_column(
+        String, ForeignKey("patients.patient_id")
+    )
+    content_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("education_content.content_id")
+    )
+    viewed_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )

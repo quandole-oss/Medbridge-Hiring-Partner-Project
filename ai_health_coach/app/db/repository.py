@@ -4,7 +4,16 @@ from typing import List, Optional
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import AuditLog, Exercise, ExerciseCompletion, Goal, Patient
+from app.db.models import (
+    AuditLog,
+    EducationContent,
+    EducationView,
+    Exercise,
+    ExerciseCompletion,
+    Goal,
+    OutcomeReport,
+    Patient,
+)
 
 
 async def get_patient(session: AsyncSession, patient_id: str) -> Optional[Patient]:
@@ -101,13 +110,18 @@ async def get_disengaged_patients(
 
 
 async def get_patient_exercises(
-    session: AsyncSession, patient_id: str, day: Optional[int] = None
+    session: AsyncSession,
+    patient_id: str,
+    day: Optional[int] = None,
+    week_number: Optional[int] = None,
 ) -> List[Exercise]:
     stmt = select(Exercise).where(
         Exercise.patient_id == patient_id, Exercise.is_active == True
     )
     if day is not None:
         stmt = stmt.where(Exercise.day_number == day)
+    if week_number is not None:
+        stmt = stmt.where(Exercise.week_number == week_number)
     stmt = stmt.order_by(Exercise.day_number, Exercise.sort_order)
     result = await session.execute(stmt)
     return list(result.scalars().all())
@@ -191,7 +205,7 @@ async def unmark_exercise_complete(
 
 
 async def get_adherence_stats(
-    session: AsyncSession, patient_id: str
+    session: AsyncSession, patient_id: str, week_number: Optional[int] = None
 ) -> dict:
     patient = await get_patient(session, patient_id)
     if not patient or not patient.enrollment_date:
@@ -216,21 +230,31 @@ async def get_adherence_stats(
     current_day = min(days_in_program, 7)
 
     # Total exercises due (days completed so far)
-    due_result = await session.execute(
-        select(func.count(Exercise.exercise_id)).where(
-            Exercise.patient_id == patient_id,
-            Exercise.is_active == True,
-            Exercise.day_number <= current_day,
-        )
+    due_stmt = select(func.count(Exercise.exercise_id)).where(
+        Exercise.patient_id == patient_id,
+        Exercise.is_active == True,
+        Exercise.day_number <= current_day,
     )
+    if week_number is not None:
+        due_stmt = due_stmt.where(Exercise.week_number == week_number)
+    due_result = await session.execute(due_stmt)
     total_due = due_result.scalar() or 0
 
     # Total completed
-    completed_result = await session.execute(
-        select(func.count(ExerciseCompletion.completion_id)).where(
-            ExerciseCompletion.patient_id == patient_id,
-        )
+    comp_stmt = select(func.count(ExerciseCompletion.completion_id)).where(
+        ExerciseCompletion.patient_id == patient_id,
     )
+    if week_number is not None:
+        # Join to Exercise to filter by week
+        comp_stmt = (
+            select(func.count(ExerciseCompletion.completion_id))
+            .join(Exercise, ExerciseCompletion.exercise_id == Exercise.exercise_id)
+            .where(
+                ExerciseCompletion.patient_id == patient_id,
+                Exercise.week_number == week_number,
+            )
+        )
+    completed_result = await session.execute(comp_stmt)
     total_completed = completed_result.scalar() or 0
 
     completion_rate = (total_completed / total_due * 100) if total_due > 0 else 0.0
@@ -395,3 +419,172 @@ async def replace_exercise(
     await session.commit()
     await session.refresh(new_exercise)
     return new_exercise
+
+
+# ── Outcome Reports (PROs) ──────────────────────────────────────────────────
+
+
+async def create_outcome_report(
+    session: AsyncSession,
+    patient_id: str,
+    pain_score: int,
+    function_score: int,
+    wellbeing_score: int,
+    notes: Optional[str] = None,
+) -> OutcomeReport:
+    report = OutcomeReport(
+        patient_id=patient_id,
+        report_date=datetime.date.today(),
+        pain_score=pain_score,
+        function_score=function_score,
+        wellbeing_score=wellbeing_score,
+        notes=notes,
+    )
+    session.add(report)
+    await session.commit()
+    await session.refresh(report)
+    return report
+
+
+async def get_outcome_reports(
+    session: AsyncSession, patient_id: str, limit: int = 10
+) -> List[OutcomeReport]:
+    result = await session.execute(
+        select(OutcomeReport)
+        .where(OutcomeReport.patient_id == patient_id)
+        .order_by(OutcomeReport.report_date.desc(), OutcomeReport.created_at.desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def get_outcome_summary(
+    session: AsyncSession, patient_id: str
+) -> dict:
+    reports = await get_outcome_reports(session, patient_id, limit=100)
+    if not reports:
+        return {
+            "latest": None,
+            "pain_trend": "stable",
+            "function_trend": "stable",
+            "wellbeing_trend": "stable",
+            "report_count": 0,
+        }
+
+    latest = reports[0]  # most recent
+
+    def compute_trend(scores: List[int]) -> str:
+        """Compute trend from newest-first scores. 'improving' = scores going up."""
+        if len(scores) < 2:
+            return "stable"
+        # scores[0] is most recent; compare first half (recent) vs second half (older)
+        mid = len(scores) // 2
+        recent_avg = sum(scores[:mid]) / mid
+        older_avg = sum(scores[mid:]) / len(scores[mid:])
+        delta = recent_avg - older_avg
+        if abs(delta) < 0.5:
+            return "stable"
+        return "improving" if delta > 0 else "declining"
+
+    # Reports are newest-first; for pain, lower is better so invert
+    pain_scores = [r.pain_score for r in reports]
+    function_scores = [r.function_score for r in reports]
+    wellbeing_scores = [r.wellbeing_score for r in reports]
+
+    pain_trend_raw = compute_trend(pain_scores)
+    # Invert pain trend: decreasing pain = improving
+    pain_trend = (
+        "improving" if pain_trend_raw == "declining"
+        else "declining" if pain_trend_raw == "improving"
+        else "stable"
+    )
+
+    return {
+        "latest": {
+            "report_id": latest.report_id,
+            "patient_id": latest.patient_id,
+            "report_date": latest.report_date.isoformat(),
+            "pain_score": latest.pain_score,
+            "function_score": latest.function_score,
+            "wellbeing_score": latest.wellbeing_score,
+            "notes": latest.notes,
+        },
+        "pain_trend": pain_trend,
+        "function_trend": compute_trend(function_scores),
+        "wellbeing_trend": compute_trend(wellbeing_scores),
+        "report_count": len(reports),
+    }
+
+
+# ── Education Content ────────────────────────────────────────────────────────
+
+
+DAY_THEMES = {
+    1: "mobility",
+    2: "stretching",
+    3: "strengthening",
+    4: "balance",
+    5: "strength_progression",
+    6: "flexibility",
+    7: "full_circuit",
+}
+
+
+async def get_education_for_day(
+    session: AsyncSession,
+    day_theme: str,
+    body_parts: List[str],
+) -> List[EducationContent]:
+    stmt = (
+        select(EducationContent)
+        .where(
+            EducationContent.is_active == True,
+            (
+                (EducationContent.day_theme == day_theme)
+                | (EducationContent.body_part.in_(body_parts))
+            ),
+        )
+        .order_by(EducationContent.sort_order)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_unviewed_education(
+    session: AsyncSession,
+    patient_id: str,
+    content_ids: List[int],
+) -> List[int]:
+    if not content_ids:
+        return []
+    result = await session.execute(
+        select(EducationView.content_id).where(
+            EducationView.patient_id == patient_id,
+            EducationView.content_id.in_(content_ids),
+        )
+    )
+    viewed = {row[0] for row in result.all()}
+    return [cid for cid in content_ids if cid not in viewed]
+
+
+async def mark_education_viewed(
+    session: AsyncSession,
+    patient_id: str,
+    content_id: int,
+) -> EducationView:
+    # Check if already viewed
+    result = await session.execute(
+        select(EducationView).where(
+            EducationView.patient_id == patient_id,
+            EducationView.content_id == content_id,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        return existing
+
+    view = EducationView(patient_id=patient_id, content_id=content_id)
+    session.add(view)
+    await session.commit()
+    await session.refresh(view)
+    return view

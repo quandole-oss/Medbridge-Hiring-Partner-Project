@@ -13,13 +13,18 @@ async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Migrate: add set_statuses column if missing (existing DBs)
-        try:
-            await conn.execute(
-                text("ALTER TABLE exercise_completions ADD COLUMN set_statuses JSON")
-            )
-        except Exception:
-            pass  # Column already exists
+        # Migrate: add columns if missing (existing DBs)
+        migrations = [
+            "ALTER TABLE exercise_completions ADD COLUMN set_statuses JSON",
+            "ALTER TABLE exercises ADD COLUMN week_number INTEGER DEFAULT 1",
+            "ALTER TABLE patients ADD COLUMN pathway_id INTEGER",
+            "ALTER TABLE patients ADD COLUMN current_week INTEGER DEFAULT 1",
+        ]
+        for migration in migrations:
+            try:
+                await conn.execute(text(migration))
+            except Exception:
+                pass  # Column already exists
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:

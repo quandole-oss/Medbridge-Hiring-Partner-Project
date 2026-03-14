@@ -3,7 +3,16 @@ import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Exercise, ExerciseCompletion, Goal, Patient
+from app.db.models import (
+    EducationContent,
+    Exercise,
+    ExerciseCompletion,
+    Goal,
+    OutcomeReport,
+    Patient,
+    Pathway,
+    PathwayWeek,
+)
 
 
 DEMO_EXERCISES = [
@@ -303,8 +312,44 @@ async def seed_demo_patient(session: AsyncSession) -> None:
 
     await session.flush()
 
+    # ── Create 4-week pathway ──
+    pathway_check = await session.execute(
+        select(Pathway).where(Pathway.name == "Post-Op Knee Recovery").limit(1)
+    )
+    pathway = pathway_check.scalar_one_or_none()
+    if not pathway:
+        pathway = Pathway(
+            name="Post-Op Knee Recovery",
+            description="A progressive 4-week program for post-operative knee rehabilitation, advancing through foundation, building, strengthening, and integration phases.",
+            total_weeks=4,
+            condition="knee",
+            is_active=True,
+        )
+        session.add(pathway)
+        await session.flush()
+
+        weeks_data = [
+            (1, "Foundation", 0.8, None),
+            (2, "Building", 0.7, 6),
+            (3, "Strengthening", 0.75, 5),
+            (4, "Integration", 0.8, 4),
+        ]
+        for wn, theme, threshold, pain_ceil in weeks_data:
+            pw = PathwayWeek(
+                pathway_id=pathway.pathway_id,
+                week_number=wn,
+                theme=theme,
+                advancement_threshold=threshold,
+                pain_ceiling=pain_ceil,
+            )
+            session.add(pw)
+        await session.flush()
+
+    patient.pathway_id = pathway.pathway_id
+    patient.current_week = 1
+
     for ex_data in DEMO_EXERCISES:
-        exercise = Exercise(patient_id=DEMO_PATIENT_ID, **ex_data)
+        exercise = Exercise(patient_id=DEMO_PATIENT_ID, week_number=1, **ex_data)
         session.add(exercise)
     await session.flush()
 
@@ -364,4 +409,166 @@ async def seed_demo_patient(session: AsyncSession) -> None:
         )
         session.add(completion)
 
+    # ── PRO outcome reports: realistic recovery arc ──
+    pro_data = [
+        # (days_ago, pain, function, wellbeing)
+        (4, 7, 3, 4),
+        (3, 6, 4, 5),
+        (2, 6, 4, 5),
+        (1, 5, 5, 6),
+        (0, 4, 6, 6),
+    ]
+    for days_ago, pain, func, well in pro_data:
+        report_date = today - datetime.timedelta(days=days_ago)
+        report = OutcomeReport(
+            patient_id=DEMO_PATIENT_ID,
+            report_date=report_date,
+            pain_score=pain,
+            function_score=func,
+            wellbeing_score=well,
+            created_at=datetime.datetime.combine(
+                report_date,
+                datetime.time(8, 0),
+                tzinfo=datetime.timezone.utc,
+            ),
+        )
+        session.add(report)
+
+    await session.commit()
+
+
+EDUCATION_ITEMS = [
+    # Day 1 — mobility
+    {
+        "title": "Why ankle mobility matters after surgery",
+        "body": "After knee or lower-extremity surgery, ankle mobility is one of the first things to address. Gentle ankle pumps help restore blood flow, reduce swelling, and prevent blood clots. Even small movements signal your nervous system that the limb is safe to use, which accelerates the healing cascade. Aim for slow, full-range pumps rather than quick, shallow ones.",
+        "content_type": "article",
+        "body_part": "Ankle",
+        "day_theme": "mobility",
+        "sort_order": 1,
+    },
+    {
+        "title": "3 signs your quad set is working",
+        "body": "A proper quad set should: (1) make the muscle on top of your thigh visibly tighten, (2) press the back of your knee firmly into the towel or bed, and (3) cause your kneecap to glide slightly upward. If you can see and feel all three, you are activating correctly. If not, try placing your fingers on the inner quad just above the knee to check for contraction.",
+        "content_type": "tip",
+        "body_part": "Knee",
+        "day_theme": "mobility",
+        "sort_order": 2,
+    },
+    # Day 2 — stretching
+    {
+        "title": "Is it normal to feel stiff in the morning?",
+        "body": "Yes — morning stiffness is very common during recovery. Overnight, your joints lose some of the lubricating fluid that movement provides. Gentle stretching within the first 30 minutes of waking up helps restore that fluid and signals your muscles to relax. Stiffness that lasts more than an hour or worsens over several days should be mentioned to your physical therapist.",
+        "content_type": "faq",
+        "body_part": "Hamstring",
+        "day_theme": "stretching",
+        "sort_order": 1,
+    },
+    {
+        "title": "The difference between stretching pain and injury pain",
+        "body": "A good stretch feels like mild tension or a gentle pull — it should be uncomfortable but never sharp. Injury pain tends to be sudden, localized, and may come with swelling or instability. If stretching produces a sharp or burning sensation, stop immediately and let your PT know. The 'no pain, no gain' philosophy does not apply to rehabilitation.",
+        "content_type": "article",
+        "body_part": "Calf",
+        "day_theme": "stretching",
+        "sort_order": 2,
+    },
+    # Day 3 — strengthening
+    {
+        "title": "How strengthening exercises rebuild after surgery",
+        "body": "After surgery, muscles lose strength quickly — sometimes 10–15% per week of inactivity. Strengthening exercises like straight leg raises and glute bridges reverse this process by creating micro-stress on muscle fibers, which triggers your body to repair them stronger than before. Start with bodyweight only and progress gradually as your PT advises.",
+        "content_type": "article",
+        "body_part": "Hip",
+        "day_theme": "strengthening",
+        "sort_order": 1,
+    },
+    {
+        "title": "Why glute activation matters for knee recovery",
+        "body": "Weak glutes are one of the most common contributors to knee pain and instability. Your gluteus medius controls hip stability during walking, and when it is weak, the knee compensates by collapsing inward. Exercises like glute bridges and hip abduction directly target this muscle, protecting your knee during daily activities.",
+        "content_type": "tip",
+        "body_part": "Glutes",
+        "day_theme": "strengthening",
+        "sort_order": 2,
+    },
+    # Day 4 — balance
+    {
+        "title": "Understanding balance and fall prevention",
+        "body": "Balance is a skill, not just a physical attribute. It relies on three systems working together: your vision, your inner ear (vestibular system), and proprioceptors in your joints and muscles. After surgery, the proprioceptors in the affected joint need retraining. Single-leg stands and heel-to-toe walks challenge these sensors in a safe, progressive way.",
+        "content_type": "article",
+        "body_part": "Balance",
+        "day_theme": "balance",
+        "sort_order": 1,
+    },
+    {
+        "title": "Why balance training feels harder some days",
+        "body": "Balance performance varies day to day based on fatigue, hydration, sleep quality, and even stress levels. If balance exercises feel unusually difficult, it does not mean you are regressing — it means your body is processing a lot. Keep practicing, and your baseline will steadily improve over weeks.",
+        "content_type": "faq",
+        "body_part": "Balance",
+        "day_theme": "balance",
+        "sort_order": 2,
+    },
+    # Day 5 — strength_progression
+    {
+        "title": "Progressive overload: when to push harder",
+        "body": "Progressive overload means gradually increasing the difficulty of your exercises over time. In PT, this might mean adding reps, increasing hold time, or moving to a harder variation. The right time to progress is when your current exercises feel manageable with good form for two consecutive sessions. Never increase more than one variable at a time.",
+        "content_type": "article",
+        "body_part": "Knee",
+        "day_theme": "strength_progression",
+        "sort_order": 1,
+    },
+    {
+        "title": "Wall squats vs. free squats: which is right for you?",
+        "body": "Wall squats provide back support and limit your range of motion, making them ideal for early-stage recovery. Free squats require more balance and core control. Your PT will transition you from wall squats to free squats when your quadriceps and glutes are strong enough to maintain proper form without support. Do not rush this transition.",
+        "content_type": "tip",
+        "body_part": "Knee",
+        "day_theme": "strength_progression",
+        "sort_order": 2,
+    },
+    # Day 6 — flexibility
+    {
+        "title": "Flexibility vs. mobility: what is the difference?",
+        "body": "Flexibility refers to how far a muscle can stretch passively (like touching your toes). Mobility refers to how well a joint moves through its full range under control. Both matter in recovery. Stretching improves flexibility, while controlled movement exercises improve mobility. Your program includes both because they complement each other.",
+        "content_type": "article",
+        "body_part": "Hamstring",
+        "day_theme": "flexibility",
+        "sort_order": 1,
+    },
+    {
+        "title": "The piriformis: a small muscle with big impact",
+        "body": "The piriformis is a deep hip rotator muscle that sits near the sciatic nerve. When tight, it can cause hip and buttock pain and sometimes radiating discomfort down the leg. The figure-4 stretch directly targets this muscle. Hold the stretch gently — forcing it can irritate the sciatic nerve rather than relieve tension.",
+        "content_type": "tip",
+        "body_part": "Hip",
+        "day_theme": "flexibility",
+        "sort_order": 2,
+    },
+    # Day 7 — full_circuit
+    {
+        "title": "Why circuit-style workouts help recovery",
+        "body": "Circuit workouts combine multiple exercises with minimal rest, which builds muscular endurance and cardiovascular conditioning simultaneously. In rehabilitation, circuits mimic the demands of daily life — where you do not rest between walking to the kitchen, bending to pick something up, and climbing stairs. Think of Day 7 as a rehearsal for real-world movement.",
+        "content_type": "article",
+        "body_part": "Knee",
+        "day_theme": "full_circuit",
+        "sort_order": 1,
+    },
+    {
+        "title": "How to pace yourself during a full circuit",
+        "body": "Listen to your body between exercises. A brief rest of 30–60 seconds is fine and expected. If you feel sharp pain or significant fatigue in any exercise, reduce the reps or skip that exercise for the day and let your PT know. Completing the circuit with good form is more important than finishing quickly.",
+        "content_type": "tip",
+        "body_part": "Glutes",
+        "day_theme": "full_circuit",
+        "sort_order": 2,
+    },
+]
+
+
+async def seed_education_content(session: AsyncSession) -> None:
+    """Insert education content if none exists."""
+    result = await session.execute(
+        select(EducationContent).limit(1)
+    )
+    if result.scalar_one_or_none() is not None:
+        return
+
+    for item in EDUCATION_ITEMS:
+        content = EducationContent(**item, is_active=True)
+        session.add(content)
     await session.commit()

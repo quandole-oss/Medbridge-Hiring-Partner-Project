@@ -15,6 +15,7 @@ from app.api.schemas import (
     AdjustExerciseResponse,
     ChatRequest,
     ChatResponse,
+    EducationContentResponse,
     EventTriggerRequest,
     EventTriggerResponse,
     ExerciseCompleteRequest,
@@ -22,18 +23,30 @@ from app.api.schemas import (
     ExerciseProgramResponse,
     ExerciseResponse,
     HealthResponse,
+    OutcomeReportRequest,
+    OutcomeReportResponse,
+    OutcomeSummaryResponse,
+    PathwayAdvanceResponse,
+    PathwayStatusResponse,
     PatientStatusResponse,
 )
 from app.db.repository import (
+    DAY_THEMES,
+    create_outcome_report,
     find_replacement_target,
     get_active_goal,
     get_adherence_stats,
+    get_education_for_day,
     get_exercise_by_id,
     get_exercise_completions,
+    get_outcome_reports,
+    get_outcome_summary,
     get_patient,
     get_patient_exercises,
+    get_unviewed_education,
     grant_consent,
     log_audit_event,
+    mark_education_viewed,
     mark_exercise_complete,
     replace_exercise,
     unmark_exercise_complete,
@@ -278,7 +291,9 @@ async def get_exercises(
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
-    exercises = await get_patient_exercises(session, patient_id, day=day)
+    # Filter by current week if patient is on a pathway
+    week_filter = patient.current_week if patient.pathway_id else None
+    exercises = await get_patient_exercises(session, patient_id, day=day, week_number=week_filter)
     today = datetime.date.today()
     if day is not None and patient.enrollment_date is not None:
         completion_date = patient.enrollment_date.date() + datetime.timedelta(days=day - 1)
@@ -559,4 +574,252 @@ async def adjust_exercise(
         reasoning=reasoning_with_day,
         target_day=target_day,
         target_exercise_name=target_exercise_name,
+    )
+
+
+# ── PRO (Patient-Reported Outcomes) endpoints ────────────────────────────────
+
+
+@router.post(
+    "/patients/{patient_id}/outcomes",
+    response_model=OutcomeReportResponse,
+    status_code=201,
+)
+async def submit_outcome_report(
+    patient_id: str,
+    request: OutcomeReportRequest,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    report = await create_outcome_report(
+        session,
+        patient_id,
+        pain_score=request.pain_score,
+        function_score=request.function_score,
+        wellbeing_score=request.wellbeing_score,
+        notes=request.notes,
+    )
+
+    return OutcomeReportResponse(
+        report_id=report.report_id,
+        patient_id=report.patient_id,
+        report_date=report.report_date.isoformat(),
+        pain_score=report.pain_score,
+        function_score=report.function_score,
+        wellbeing_score=report.wellbeing_score,
+        notes=report.notes,
+    )
+
+
+@router.get(
+    "/patients/{patient_id}/outcomes",
+    response_model=OutcomeSummaryResponse,
+)
+async def get_outcomes(
+    patient_id: str,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    summary = await get_outcome_summary(session, patient_id)
+    reports = await get_outcome_reports(session, patient_id)
+
+    latest_resp = None
+    if summary["latest"]:
+        latest_resp = OutcomeReportResponse(**summary["latest"])
+
+    report_responses = [
+        OutcomeReportResponse(
+            report_id=r.report_id,
+            patient_id=r.patient_id,
+            report_date=r.report_date.isoformat(),
+            pain_score=r.pain_score,
+            function_score=r.function_score,
+            wellbeing_score=r.wellbeing_score,
+            notes=r.notes,
+        )
+        for r in reports
+    ]
+
+    return OutcomeSummaryResponse(
+        patient_id=patient_id,
+        latest=latest_resp,
+        pain_trend=summary["pain_trend"],
+        function_trend=summary["function_trend"],
+        wellbeing_trend=summary["wellbeing_trend"],
+        report_count=summary["report_count"],
+        reports=report_responses,
+    )
+
+
+# ── Education Content endpoints ──────────────────────────────────────────────
+
+
+@router.get(
+    "/patients/{patient_id}/education",
+    response_model=list,
+)
+async def get_education(
+    patient_id: str,
+    day: int = Query(ge=1, le=7),
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    day_theme = DAY_THEMES.get(day)
+    if not day_theme:
+        return []
+
+    # Get body parts for this day's exercises
+    exercises = await get_patient_exercises(session, patient_id, day=day)
+    body_parts = list({e.body_part for e in exercises})
+
+    content = await get_education_for_day(session, day_theme, body_parts)
+    if not content:
+        return []
+
+    content_ids = [c.content_id for c in content]
+    unviewed_ids = await get_unviewed_education(session, patient_id, content_ids)
+
+    return [
+        EducationContentResponse(
+            content_id=c.content_id,
+            title=c.title,
+            body=c.body,
+            content_type=c.content_type,
+            body_part=c.body_part,
+            is_viewed=c.content_id not in unviewed_ids,
+        )
+        for c in content
+    ]
+
+
+@router.post(
+    "/patients/{patient_id}/education/{content_id}/view",
+    status_code=204,
+)
+async def view_education(
+    patient_id: str,
+    content_id: int,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    await mark_education_viewed(session, patient_id, content_id)
+
+
+# ── Pathway endpoints ────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/patients/{patient_id}/pathway",
+    response_model=PathwayStatusResponse,
+)
+async def get_pathway_status(
+    patient_id: str,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    from app.db.models import Pathway, PathwayWeek
+
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    if not patient.pathway_id:
+        return PathwayStatusResponse(
+            patient_id=patient_id,
+            pathway_name=None,
+            current_week=1,
+            total_weeks=1,
+            week_theme="Standard",
+            advancement_threshold=0.0,
+            current_adherence=0.0,
+            can_advance=False,
+            blocker=None,
+        )
+
+    from sqlalchemy import select as sa_select
+
+    pathway_result = await session.execute(
+        sa_select(Pathway).where(Pathway.pathway_id == patient.pathway_id)
+    )
+    pathway = pathway_result.scalar_one_or_none()
+
+    week_result = await session.execute(
+        sa_select(PathwayWeek).where(
+            PathwayWeek.pathway_id == patient.pathway_id,
+            PathwayWeek.week_number == patient.current_week,
+        )
+    )
+    current_pw = week_result.scalar_one_or_none()
+
+    adherence = await get_adherence_stats(session, patient_id, week_number=patient.current_week)
+    completion_rate = adherence["completion_rate"]
+    threshold = current_pw.advancement_threshold if current_pw else 0.0
+
+    # Check advancement eligibility without side effects
+    can_advance = False
+    blocker = None
+    if patient.current_week >= (pathway.total_weeks if pathway else 1):
+        blocker = "already_final_week"
+    elif (completion_rate / 100.0) < threshold:
+        blocker = "adherence"
+    else:
+        # Check pain ceiling
+        if current_pw and current_pw.pain_ceiling is not None:
+            outcomes = await get_outcome_summary(session, patient_id)
+            if outcomes["latest"] and outcomes["latest"]["pain_score"] > current_pw.pain_ceiling:
+                blocker = "pain"
+            else:
+                can_advance = True
+        else:
+            can_advance = True
+
+    return PathwayStatusResponse(
+        patient_id=patient_id,
+        pathway_name=pathway.name if pathway else None,
+        current_week=patient.current_week,
+        total_weeks=pathway.total_weeks if pathway else 1,
+        week_theme=current_pw.theme if current_pw else "Unknown",
+        advancement_threshold=threshold,
+        current_adherence=completion_rate,
+        can_advance=can_advance,
+        blocker=blocker,
+    )
+
+
+@router.post(
+    "/patients/{patient_id}/pathway/advance",
+    response_model=PathwayAdvanceResponse,
+)
+async def advance_pathway(
+    patient_id: str,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    from app.services.pathway import evaluate_advancement
+    result = await evaluate_advancement(session, patient_id)
+
+    return PathwayAdvanceResponse(
+        advanced=result["advanced"],
+        new_week=result["new_week"],
+        reason=result["reason"],
     )

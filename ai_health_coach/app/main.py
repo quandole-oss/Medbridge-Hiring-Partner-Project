@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
-from app.db.seed import seed_demo_patient
+from app.db.seed import seed_demo_patient, seed_education_content
 from app.db.session import get_db_session, init_db
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -27,6 +27,7 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized")
     async for session in get_db_session():
         await seed_demo_patient(session)
+        await seed_education_content(session)
     logger.info("Demo patient seeded")
     yield
     logger.info("Shutting down AI Health Coach")

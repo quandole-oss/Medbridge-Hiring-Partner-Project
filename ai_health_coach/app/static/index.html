@@ -819,6 +819,71 @@
     .empty-state svg { width: 48px; height: 48px; opacity: 0.3; margin-bottom: 8px; }
     .empty-state p { font-size: 0.9rem; }
 
+    /* ─── PRO Check-in Card ─── */
+
+    .pro-card { position: relative; }
+    .pro-card .pro-sliders { display: flex; flex-direction: column; gap: 14px; margin: 12px 0; }
+    .pro-slider-row { display: flex; align-items: center; gap: 10px; }
+    .pro-slider-row label { font-size: 0.8rem; font-weight: 600; color: var(--text); min-width: 80px; }
+    .pro-slider-row input[type="range"] { flex: 1; accent-color: var(--gold); }
+    .pro-slider-row .pro-val { font-size: 0.85rem; font-weight: 700; color: var(--navy); min-width: 24px; text-align: center; }
+    .pro-notes { width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.85rem; resize: none; }
+    .pro-submit-btn {
+      margin-top: 8px; width: 100%; padding: 10px; border: none; border-radius: 10px;
+      background: var(--gold); color: #fff; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+    }
+    .pro-submit-btn:hover { background: var(--gold-hover); }
+    .pro-summary-pill {
+      display: flex; gap: 12px; justify-content: center; padding: 8px 0;
+      font-size: 0.85rem; font-weight: 600; color: var(--navy);
+    }
+    .pro-trend-chart { margin-top: 12px; }
+    .pro-sparkline { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
+    .pro-sparkline .spark-bar { flex: 1; background: var(--gold); border-radius: 2px 2px 0 0; min-width: 6px; transition: height 0.3s ease; }
+
+    /* ─── Education Cards ─── */
+
+    .edu-card { border-left: 3px solid var(--gold); }
+    .edu-card .home-card-label { color: var(--gold-hover); }
+    .edu-item { padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .edu-item:last-child { border-bottom: none; }
+    .edu-item-title { font-size: 0.85rem; font-weight: 600; color: var(--navy); }
+    .edu-item-type { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); }
+    .edu-item-body { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-top: 6px; display: none; }
+    .edu-item.expanded .edu-item-body { display: block; }
+    .edu-item.viewed .edu-item-title { color: var(--text-muted); }
+    .edu-why-link {
+      font-size: 0.8rem; color: var(--gold-hover); cursor: pointer; margin-top: 8px;
+      display: inline-block; font-weight: 600;
+    }
+    .edu-why-content { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-top: 6px; display: none; }
+    .edu-why-content.visible { display: block; }
+
+    /* ─── Pathway Progress ─── */
+
+    .pathway-bar-container { margin: 8px 0; }
+    .pathway-bar-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+    .pathway-bar-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .pathway-bar-fill { height: 100%; background: var(--gold); border-radius: 4px; transition: width 0.3s ease; }
+    .pathway-week-label { font-size: 0.85rem; font-weight: 700; color: var(--navy); }
+    .pathway-segments { display: flex; gap: 4px; margin: 8px 0; }
+    .pathway-segment {
+      flex: 1; height: 8px; border-radius: 4px; background: var(--border);
+    }
+    .pathway-segment.completed { background: var(--success); }
+    .pathway-segment.current { background: var(--gold); }
+    .pathway-advancement-overlay {
+      position: fixed; inset: 0; background: rgba(27,54,93,0.85); z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pathway-advancement-card {
+      background: #fff; border-radius: 16px; padding: 40px; max-width: 360px;
+      text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .pathway-advancement-card h2 { font-family: var(--font-serif); color: var(--navy); margin-bottom: 8px; }
+    .pathway-advancement-card .adv-theme { font-size: 1.1rem; color: var(--gold-hover); font-weight: 600; margin-bottom: 16px; }
+    .pathway-advancement-card .btn-primary { margin-top: 12px; }
+
     /* ─── Reduced Motion ─── */
 
     @media (prefers-reduced-motion: reduce) {
@@ -1156,6 +1221,43 @@
         getAdherence: function (patientId) {
           return fetch('/patients/' + encodeURIComponent(patientId) + '/adherence', {
             headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        submitOutcome: function (patientId, data) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/outcomes', {
+            method: 'POST', headers: api.headers(),
+            body: JSON.stringify(data)
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        getOutcomes: function (patientId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/outcomes', {
+            headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        getEducation: function (patientId, day) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/education?day=' + day, {
+            headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        viewEducation: function (patientId, contentId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/education/' + contentId + '/view', {
+            method: 'POST', headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; });
+        },
+
+        getPathway: function (patientId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/pathway', {
+            headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        advancePathway: function (patientId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/pathway/advance', {
+            method: 'POST', headers: api.headers()
           }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
         }
       };
@@ -1840,6 +1942,8 @@
           .then(function (data) {
             state.adherence = data;
             state.currentDay = data.current_day;
+            // Also fetch pathway for week label
+            api.getPathway(state.patientId).then(function (pw) { state.pathway = pw; }).catch(function () {});
             renderDaySelector();
             return loadExercisesForDay(state.currentDay);
           })
@@ -1849,26 +1953,69 @@
       }
 
       function loadExercisesForDay(day) {
-        return api.getExercises(state.patientId, day)
-          .then(function (data) {
-            state.exercises = data.exercises;
-            renderExerciseList();
-          })
-          .catch(function () {
-            showError('Could not load exercises for this day.');
-          });
+        return Promise.all([
+          api.getExercises(state.patientId, day),
+          api.getEducation(state.patientId, day).catch(function () { return []; }),
+        ]).then(function (results) {
+          state.exercises = results[0].exercises;
+          state.dayEducation = results[1];
+          renderExerciseList();
+        }).catch(function () {
+          showError('Could not load exercises for this day.');
+        });
       }
 
       function renderExerciseList() {
         exerciseList.innerHTML = '';
+
+        // Pathway week label
+        if (state.pathway && state.pathway.pathway_name) {
+          var weekLabel = document.createElement('div');
+          weekLabel.className = 'pathway-week-label';
+          weekLabel.textContent = 'Week ' + state.pathway.current_week + ' — ' + state.pathway.week_theme;
+          weekLabel.style.padding = '0 4px 8px';
+          exerciseList.appendChild(weekLabel);
+        }
+
         if (!state.exercises.length) {
-          exerciseList.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg><p>No exercises for this day yet.</p></div>';
+          exerciseList.innerHTML += '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg><p>No exercises for this day yet.</p></div>';
           return;
         }
 
         for (var i = 0; i < state.exercises.length; i++) {
           var ex = state.exercises[i];
           exerciseList.appendChild(buildExerciseCard(ex));
+        }
+
+        // Education "Today's Learning" section
+        if (state.dayEducation && state.dayEducation.length > 0) {
+          var eduSection = document.createElement('div');
+          eduSection.className = 'home-card edu-card';
+          eduSection.style.marginTop = '16px';
+          var label = document.createElement('div');
+          label.className = 'home-card-label';
+          label.textContent = "Today's Learning";
+          eduSection.appendChild(label);
+
+          for (var ei = 0; ei < state.dayEducation.length; ei++) {
+            (function (edu) {
+              var item = document.createElement('div');
+              item.className = 'edu-item' + (edu.is_viewed ? ' viewed' : '');
+              item.innerHTML = '<div class="edu-item-title">' + escapeHtml(edu.title) +
+                ' <span class="edu-item-type">' + escapeHtml(edu.content_type) + '</span></div>' +
+                '<div class="edu-item-body">' + escapeHtml(edu.body) + '</div>';
+              item.addEventListener('click', function () {
+                item.classList.toggle('expanded');
+                if (item.classList.contains('expanded') && !edu.is_viewed) {
+                  edu.is_viewed = true;
+                  item.classList.add('viewed');
+                  api.viewEducation(state.patientId, edu.content_id).catch(function () {});
+                }
+              });
+              eduSection.appendChild(item);
+            })(state.dayEducation[ei]);
+          }
+          exerciseList.appendChild(eduSection);
         }
       }
 
@@ -2226,12 +2373,16 @@
       }
 
       function loadHome() {
-        api.getAdherence(state.patientId)
-          .then(function (data) {
-            state.adherence = data;
-            renderHome();
-          })
-          .catch(function () { showError('Could not load dashboard.'); });
+        Promise.all([
+          api.getAdherence(state.patientId),
+          api.getOutcomes(state.patientId).catch(function () { return null; }),
+          api.getPathway(state.patientId).catch(function () { return null; }),
+        ]).then(function (results) {
+          state.adherence = results[0];
+          state.outcomes = results[1];
+          state.pathway = results[2];
+          renderHome();
+        }).catch(function () { showError('Could not load dashboard.'); });
       }
 
       function renderHome() {
@@ -2298,11 +2449,75 @@
           barsHtml += '<div class="bar-group"><div class="bar-track"><div class="bar-fill" style="height:' + pct + '%"></div></div><div class="bar-label">D' + dc.day + '</div></div>';
         }
 
+        // 6. Pathway progress bar
+        var pathwayHtml = '';
+        if (state.pathway && state.pathway.pathway_name) {
+          var pw = state.pathway;
+          var segments = '';
+          for (var si = 1; si <= pw.total_weeks; si++) {
+            var cls = si < pw.current_week ? 'completed' : si === pw.current_week ? 'current' : '';
+            segments += '<div class="pathway-segment ' + cls + '"></div>';
+          }
+          pathwayHtml = '<div class="home-card">' +
+            '<div class="home-card-label">' + escapeHtml(pw.pathway_name) + '</div>' +
+            '<div class="pathway-week-label">Week ' + pw.current_week + ' of ' + pw.total_weeks + ' — ' + escapeHtml(pw.week_theme) + '</div>' +
+            '<div class="pathway-segments">' + segments + '</div>' +
+            '<div class="pathway-bar-label">' + Math.round(pw.current_adherence) + '% complete · ' + Math.round(pw.advancement_threshold * 100) + '% needed to advance</div>' +
+            '</div>';
+        }
+
+        // 7. PRO check-in card
+        var proHtml = '';
+        var proSubmitted = sessionStorage.getItem('proSubmittedToday') === new Date().toISOString().slice(0, 10);
+        if (proSubmitted && state.outcomes && state.outcomes.latest) {
+          var lt = state.outcomes.latest;
+          proHtml = '<div class="home-card pro-card">' +
+            '<div class="home-card-label">Today\'s Check-in</div>' +
+            '<div class="pro-summary-pill">' +
+            '<span>Pain: ' + lt.pain_score + '/10</span>' +
+            '<span>Function: ' + lt.function_score + '/10</span>' +
+            '<span>Wellbeing: ' + lt.wellbeing_score + '/10</span>' +
+            '</div></div>';
+        } else if (!proSubmitted) {
+          proHtml = '<div class="home-card pro-card" id="proCard">' +
+            '<div class="home-card-label">Daily Check-in</div>' +
+            '<div class="pro-sliders">' +
+            '<div class="pro-slider-row"><label>Pain</label><input type="range" min="0" max="10" value="5" id="proPain"><span class="pro-val" id="proPainVal">5</span></div>' +
+            '<div class="pro-slider-row"><label>Function</label><input type="range" min="0" max="10" value="5" id="proFunction"><span class="pro-val" id="proFunctionVal">5</span></div>' +
+            '<div class="pro-slider-row"><label>Wellbeing</label><input type="range" min="0" max="10" value="5" id="proWellbeing"><span class="pro-val" id="proWellbeingVal">5</span></div>' +
+            '</div>' +
+            '<textarea class="pro-notes" id="proNotes" rows="2" placeholder="Any notes? (optional)"></textarea>' +
+            '<button class="pro-submit-btn" id="proSubmitBtn">Submit Check-in</button>' +
+            '</div>';
+        }
+
+        // 8. PRO trend sparklines
+        var proTrendHtml = '';
+        if (state.outcomes && state.outcomes.reports && state.outcomes.reports.length > 1) {
+          var rpts = state.outcomes.reports.slice().reverse(); // oldest first
+          var painBars = '';
+          var funcBars = '';
+          for (var ri = 0; ri < rpts.length; ri++) {
+            painBars += '<div class="spark-bar" style="height:' + (rpts[ri].pain_score * 10) + '%;background:var(--error)"></div>';
+            funcBars += '<div class="spark-bar" style="height:' + (rpts[ri].function_score * 10) + '%"></div>';
+          }
+          var trendIcon = function (t) { return t === 'improving' ? ' ↑' : t === 'declining' ? ' ↓' : ' →'; };
+          proTrendHtml = '<div class="home-card pro-trend-chart">' +
+            '<div class="home-card-label">Outcome Trends</div>' +
+            '<div style="display:flex;gap:16px">' +
+            '<div style="flex:1"><div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">Pain' + trendIcon(state.outcomes.pain_trend) + '</div><div class="pro-sparkline">' + painBars + '</div></div>' +
+            '<div style="flex:1"><div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px">Function' + trendIcon(state.outcomes.function_trend) + '</div><div class="pro-sparkline">' + funcBars + '</div></div>' +
+            '</div></div>';
+        }
+
         homeView.innerHTML =
           greetingHtml +
           goalCardHtml +
+          pathwayHtml +
           actionCardHtml +
+          proHtml +
           coachCardHtml +
+          proTrendHtml +
           '<div class="home-section-divider"><span>Progress</span></div>' +
           '<div class="adherence-ring-container"><div class="adherence-ring"><svg viewBox="0 0 140 140"><circle class="ring-bg" cx="70" cy="70" r="58"/><circle class="ring-fg" cx="70" cy="70" r="58" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><div class="ring-label"><div class="ring-pct">' + Math.round(a.completion_rate) + '%</div><div class="ring-sub">Completion</div></div></div></div>' +
           '<div class="stats-grid"><div class="stat-card"><div class="stat-value">' + a.streak + '</div><div class="stat-label">Day Streak</div></div><div class="stat-card"><div class="stat-value">' + a.total_completed + '</div><div class="stat-label">Completed</div></div><div class="stat-card"><div class="stat-value">' + Math.round(a.completion_rate) + '%</div><div class="stat-label">Rate</div></div><div class="stat-card"><div class="stat-value">' + a.current_day + '</div><div class="stat-label">Program Day</div></div></div>' +
@@ -2314,6 +2529,44 @@
         document.getElementById('homeStartBtn').addEventListener('click', function (e) { e.stopPropagation(); switchTab('exercises'); });
         document.getElementById('homeActionCard').addEventListener('click', function () { switchTab('exercises'); });
         document.getElementById('homeCoachCard').addEventListener('click', function () { switchTab('chat'); });
+
+        // PRO sliders
+        var proSliders = [
+          { input: 'proPain', val: 'proPainVal' },
+          { input: 'proFunction', val: 'proFunctionVal' },
+          { input: 'proWellbeing', val: 'proWellbeingVal' }
+        ];
+        for (var ps = 0; ps < proSliders.length; ps++) {
+          (function (s) {
+            var el = document.getElementById(s.input);
+            if (el) el.addEventListener('input', function () {
+              document.getElementById(s.val).textContent = el.value;
+            });
+          })(proSliders[ps]);
+        }
+
+        // PRO submit
+        var proBtn = document.getElementById('proSubmitBtn');
+        if (proBtn) {
+          proBtn.addEventListener('click', function () {
+            var pain = parseInt(document.getElementById('proPain').value);
+            var func = parseInt(document.getElementById('proFunction').value);
+            var well = parseInt(document.getElementById('proWellbeing').value);
+            var notes = document.getElementById('proNotes').value || null;
+            proBtn.disabled = true;
+            proBtn.textContent = 'Submitting...';
+            api.submitOutcome(state.patientId, {
+              pain_score: pain, function_score: func, wellbeing_score: well, notes: notes
+            }).then(function () {
+              sessionStorage.setItem('proSubmittedToday', new Date().toISOString().slice(0, 10));
+              loadHome();
+            }).catch(function () {
+              proBtn.disabled = false;
+              proBtn.textContent = 'Submit Check-in';
+              showError('Could not submit check-in.');
+            });
+          });
+        }
       }
 
       function escapeHtml(text) {

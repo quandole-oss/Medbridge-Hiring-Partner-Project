@@ -122,3 +122,66 @@ class AdherenceResponse(BaseModel):
     exercises_completed_today: int
     exercises_due_today: int
     daily_completions: List[DailyCompletion]
+
+
+# ── PRO (Patient-Reported Outcomes) ──────────────────────────────────────────
+
+
+class OutcomeReportRequest(BaseModel):
+    pain_score: int = Field(ge=0, le=10)
+    function_score: int = Field(ge=0, le=10)
+    wellbeing_score: int = Field(ge=0, le=10)
+    notes: Optional[str] = None
+
+
+class OutcomeReportResponse(BaseModel):
+    report_id: int
+    patient_id: str
+    report_date: str
+    pain_score: int
+    function_score: int
+    wellbeing_score: int
+    notes: Optional[str]
+
+
+class OutcomeSummaryResponse(BaseModel):
+    patient_id: str
+    latest: Optional[OutcomeReportResponse]
+    pain_trend: str
+    function_trend: str
+    wellbeing_trend: str
+    report_count: int
+    reports: List[OutcomeReportResponse]
+
+
+# ── Education Content ────────────────────────────────────────────────────────
+
+
+class EducationContentResponse(BaseModel):
+    content_id: int
+    title: str
+    body: str
+    content_type: str
+    body_part: Optional[str]
+    is_viewed: bool = False
+
+
+# ── Progressive Pathways ─────────────────────────────────────────────────────
+
+
+class PathwayStatusResponse(BaseModel):
+    patient_id: str
+    pathway_name: Optional[str]
+    current_week: int
+    total_weeks: int
+    week_theme: str
+    advancement_threshold: float
+    current_adherence: float
+    can_advance: bool
+    blocker: Optional[str]
+
+
+class PathwayAdvanceResponse(BaseModel):
+    advanced: bool
+    new_week: int
+    reason: str
