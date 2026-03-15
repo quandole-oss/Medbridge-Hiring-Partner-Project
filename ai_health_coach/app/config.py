@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str
-    DATABASE_URL: str = "sqlite+aiosqlite:///./health_coach.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:////data/health_coach.db"
     LANGSMITH_API_KEY: str = ""
     LANGCHAIN_TRACING_V2: bool = False
     CONSENT_CHECK_ENABLED: bool = True
