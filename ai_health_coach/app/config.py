@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     LANGSMITH_API_KEY: str = ""
     LANGCHAIN_TRACING_V2: bool = False
     CONSENT_CHECK_ENABLED: bool = True
-    API_KEY: str = "dev-api-key-change-me"
+    API_KEY: str  # required — no insecure default
 
     # LLM models
     CONVERSATION_MODEL: str = "claude-sonnet-4-20250514"

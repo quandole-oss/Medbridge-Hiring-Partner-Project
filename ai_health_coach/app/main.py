@@ -4,10 +4,11 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
+from app.config import settings
 from app.db.seed import seed_demo_patient, seed_education_content
 from app.db.session import get_db_session, init_db
 
@@ -52,7 +53,9 @@ app.include_router(router)
 
 @app.get("/")
 async def root():
-    return FileResponse(_STATIC_DIR / "index.html")
+    html = (_STATIC_DIR / "index.html").read_text()
+    html = html.replace("%%API_KEY%%", settings.API_KEY)
+    return HTMLResponse(html)
 
 
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
