@@ -5,6 +5,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from app.graph.nodes.active import active_coaching_node
+from app.graph.nodes.memory import extract_insights_node
 from app.graph.nodes.onboarding import check_goal_extraction, onboarding_node
 from app.graph.nodes.re_engaging import re_engaging_node
 from app.graph.nodes.safety import (
@@ -101,6 +102,9 @@ def build_graph() -> StateGraph:
     # Onboarding post-processing
     graph.add_node("check_goal_extraction", check_goal_extraction)
 
+    # Memory extraction
+    graph.add_node("extract_insights", extract_insights_node)
+
     # START -> phase router
     graph.add_conditional_edges(START, route_by_phase)
 
@@ -128,7 +132,8 @@ def build_graph() -> StateGraph:
     # Terminal nodes
     graph.add_edge("crisis_handler", END)
     graph.add_edge("safety_fallback", END)
-    graph.add_edge("check_goal_extraction", END)
+    graph.add_edge("check_goal_extraction", "extract_insights")
+    graph.add_edge("extract_insights", END)
 
     return graph
 

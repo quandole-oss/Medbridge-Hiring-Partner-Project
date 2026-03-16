@@ -13,6 +13,7 @@ from app.db.models import (
     Goal,
     OutcomeReport,
     Patient,
+    PatientInsight,
 )
 
 
@@ -588,3 +589,89 @@ async def mark_education_viewed(
     await session.commit()
     await session.refresh(view)
     return view
+
+
+# ── Patient Insights (Adaptive Memory) ───────────────────────────────────────
+
+
+async def get_patient_insights_db(
+    session: AsyncSession,
+    patient_id: str,
+    min_confidence: float = 0.3,
+    limit: int = 10,
+) -> List[PatientInsight]:
+    result = await session.execute(
+        select(PatientInsight)
+        .where(
+            PatientInsight.patient_id == patient_id,
+            PatientInsight.is_active == True,
+            PatientInsight.confidence >= min_confidence,
+        )
+        .order_by(
+            PatientInsight.confidence.desc(),
+            PatientInsight.last_reinforced_at.desc().nulls_last(),
+            PatientInsight.created_at.desc(),
+        )
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def upsert_patient_insight(
+    session: AsyncSession,
+    patient_id: str,
+    category: str,
+    content: str,
+) -> PatientInsight:
+    result = await session.execute(
+        select(PatientInsight).where(
+            PatientInsight.patient_id == patient_id,
+            PatientInsight.category == category,
+            PatientInsight.content == content,
+            PatientInsight.is_active == True,
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.confidence = min(existing.confidence + 0.1, 1.0)
+        existing.times_reinforced += 1
+        existing.last_reinforced_at = datetime.datetime.now(datetime.timezone.utc)
+        await session.commit()
+        await session.refresh(existing)
+        return existing
+
+    insight = PatientInsight(
+        patient_id=patient_id,
+        category=category,
+        content=content,
+        confidence=0.7,
+    )
+    session.add(insight)
+    await session.commit()
+    await session.refresh(insight)
+    return insight
+
+
+async def decay_unreinforced_insights(
+    session: AsyncSession,
+    patient_id: str,
+    reinforced_ids: List[int],
+    decay_amount: float = 0.05,
+) -> None:
+    stmt = select(PatientInsight).where(
+        PatientInsight.patient_id == patient_id,
+        PatientInsight.is_active == True,
+    )
+    if reinforced_ids:
+        stmt = stmt.where(PatientInsight.insight_id.notin_(reinforced_ids))
+
+    result = await session.execute(stmt)
+    insights = list(result.scalars().all())
+
+    for insight in insights:
+        insight.confidence = round(insight.confidence - decay_amount, 4)
+        if insight.confidence < 0.1:
+            insight.is_active = False
+
+    await session.commit()

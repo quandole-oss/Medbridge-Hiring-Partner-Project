@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.graph.prompts import ONBOARDING_SYSTEM_PROMPT
 from app.graph.state import GraphState, Phase
-from app.graph.tools import get_program_summary, set_goal
+from app.graph.tools import get_patient_insights, get_program_summary, set_goal
 from app.services.llm import get_conversation_llm
 
 logger = logging.getLogger(__name__)
@@ -25,8 +25,12 @@ def onboarding_node(state: GraphState) -> dict:
     """Guide patient through onboarding and goal-setting."""
     patient_id = state["patient_id"]
     program_summary = get_program_summary.invoke({"patient_id": patient_id})
+    insights = get_patient_insights.invoke({"patient_id": patient_id})
 
-    system_prompt = ONBOARDING_SYSTEM_PROMPT.format(program_summary=program_summary)
+    system_prompt = ONBOARDING_SYSTEM_PROMPT.format(
+        program_summary=program_summary,
+        patient_insights=insights,
+    )
 
     llm = get_conversation_llm()
     response = llm.invoke(

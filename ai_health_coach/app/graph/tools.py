@@ -180,6 +180,46 @@ def get_education_recommendation(patient_id: str, topic: str) -> str:
         return asyncio.run(_fetch())
 
 
+@tool
+def get_patient_insights(patient_id: str) -> str:
+    """Get stored insights about the patient from prior conversations."""
+    import asyncio
+    from app.db.session import async_session_factory
+    from app.db.repository import get_patient_insights_db as _get_insights
+
+    async def _fetch():
+        async with async_session_factory() as session:
+            return await _get_insights(session, patient_id)
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                insights = pool.submit(lambda: asyncio.run(_fetch())).result()
+        else:
+            insights = loop.run_until_complete(_fetch())
+    except RuntimeError:
+        insights = asyncio.run(_fetch())
+
+    if not insights:
+        return "No prior insights about this patient yet."
+
+    CATEGORY_LABELS = {
+        "preference": "Preferences",
+        "motivation": "Motivations",
+        "barrier": "Barriers",
+        "progress_note": "Progress",
+        "personal_context": "Personal Context",
+        "emotional_state": "Emotional State",
+    }
+    lines = []
+    for insight in insights:
+        label = CATEGORY_LABELS.get(insight.category, insight.category.title())
+        lines.append(f"- [{label}] {insight.content}")
+    return "\n".join(lines)
+
+
 @tool(args_schema=AlertClinicianInput)
 def alert_clinician(patient_id: str, reason: str, urgency_level: str) -> str:
     """Alert the patient's clinician. Use for crisis situations or when clinical intervention is needed."""

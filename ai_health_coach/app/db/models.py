@@ -78,6 +78,9 @@ class Patient(Base):
     outcome_reports: Mapped[List["OutcomeReport"]] = relationship(
         back_populates="patient"
     )
+    insights: Mapped[List["PatientInsight"]] = relationship(
+        back_populates="patient"
+    )
 
 
 class Goal(Base):
@@ -187,6 +190,30 @@ class OutcomeReport(Base):
     )
 
     patient: Mapped["Patient"] = relationship(back_populates="outcome_reports")
+
+
+class PatientInsight(Base):
+    __tablename__ = "patient_insights"
+
+    insight_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    patient_id: Mapped[str] = mapped_column(
+        String, ForeignKey("patients.patient_id")
+    )
+    category: Mapped[str] = mapped_column(String)
+    content: Mapped[str] = mapped_column(String)
+    confidence: Mapped[float] = mapped_column(default=0.7)
+    times_reinforced: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    last_reinforced_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, default=None
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    patient: Mapped["Patient"] = relationship(back_populates="insights")
 
 
 class EducationContent(Base):
