@@ -1405,6 +1405,7 @@
       }
 
       function updateGoal(goal) {
+        if (goal && (goal === 'None' || goal === 'No goals set yet')) goal = null;
         if (goal == null && state.currentGoal) return;
         var previousGoal = state.currentGoal;
         state.currentGoal = goal;
@@ -1425,6 +1426,9 @@
 
       function updateGoals(goals) {
         if (!goals || !Array.isArray(goals)) return;
+        goals = goals.filter(function(g) {
+          return g.goal_text && g.goal_text !== 'None' && g.goal_text !== 'null';
+        });
         state.goals = goals;
         state.currentGoal = goals.length > 0
           ? goals.map(function (g) { return g.goal_text; }).join('; ')

@@ -32,6 +32,9 @@ def set_goal(patient_id: str, goal_text: str, target_date: Optional[str] = None)
     from app.db.session import async_session_factory
     from app.db.repository import create_goal as _create_goal, get_active_goals as _get_active_goals
 
+    if goal_text.strip().lower() in ("none", "null", ""):
+        return "No valid goal text provided."
+
     parsed_date = None
     if target_date:
         try:

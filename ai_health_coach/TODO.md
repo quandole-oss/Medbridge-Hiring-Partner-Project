@@ -44,6 +44,24 @@
 - [x] `loadHome()` fetches goals in parallel with other data
 - [x] CSS for multi-goal banner, home goal list, and add-goal form
 
+## Bug Fixes: "None" Goal Display + Tool Call Crash
+
+- [x] Guard `check_goal_extraction` to reject LLM-generated `"None"` / `"null"` strings as goals
+- [x] Sanitize `current_goal` in routes.py — treat "None" / "null" / "No goals set yet" as null
+- [x] Frontend guard in `updateGoal()` — filter "None" / "No goals set yet" to null
+- [x] Tool execution loop in `active_coaching_node` — process `tool_use` responses with `ToolMessage` replies
+- [x] `_clean_tool_orphans()` helper to strip orphaned tool_use AIMessages from corrupted state
+- [x] Safety node handles list-type AIMessage content (mixed text + tool_use blocks)
+- [x] Retry node cleans tool orphans before re-invocation
+- [x] Routes extract text from list-type AIMessage content blocks
+
+## Fix: Filter "None" Goals from Display + Restore "Add Goal" Button
+
+- [x] Backend: filter "None"/"null" goals in `_build_goal_responses()` so they never reach frontend
+- [x] Backend: validate `set_goal` tool input — reject "None"/"null"/"" sentinel values
+- [x] Frontend: filter goals array in `updateGoals()` before storing in state
+- [x] Startup cleanup: `_cleanup_invalid_goals()` deactivates "None"/"null" goals on every boot
+
 ## Adaptive Patient Memory
 
 - [x] PatientInsight DB model with confidence, category, reinforcement tracking

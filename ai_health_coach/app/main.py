@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import settings
+from sqlalchemy import select, update
+
 from app.db.seed import seed_demo_patient, seed_education_content
 from app.db.session import get_db_session, init_db
 
@@ -21,6 +23,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def _cleanup_invalid_goals(session) -> None:
+    """Deactivate goals with sentinel text like 'None' or 'null'."""
+    from app.db.models import Goal
+    result = await session.execute(
+        update(Goal)
+        .where(Goal.is_active == True, Goal.goal_text.in_(["None", "null"]))
+        .values(is_active=False)
+    )
+    if result.rowcount:
+        await session.commit()
+        logger.info("Deactivated %d invalid 'None'/'null' goals", result.rowcount)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting AI Health Coach")
@@ -29,6 +44,8 @@ async def lifespan(app: FastAPI):
     async for session in get_db_session():
         await seed_demo_patient(session)
         await seed_education_content(session)
+        # Deactivate any "None"/"null" goals left by LLM
+        await _cleanup_invalid_goals(session)
     logger.info("Demo patient seeded")
     yield
     logger.info("Shutting down AI Health Coach")

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Fixed
+
+- "None" goals in banner + hidden "Add Goal" button: filter sentinel goals ("None"/"null") at API layer (`_build_goal_responses`), `set_goal` tool input validation, frontend `updateGoals()`, and startup DB cleanup
+- "None" goal display: guard against LLM returning literal `"None"` string in goal extraction, API response sanitization, and frontend display
+- Chat crash on tool calls: `active_coaching_node` now executes tool calls in a loop (up to 3 iterations) and returns proper `ToolMessage` responses so Anthropic API history stays valid
+- Orphaned tool_use recovery: `_clean_tool_orphans()` strips corrupted tool_use AIMessages from InMemorySaver state (active coaching + retry node)
+- Safety node skips pure tool_use messages and extracts text from mixed content blocks
+- API response extraction handles list-type AIMessage content (mixed text + tool_use blocks)
+
 ### Added
 
 - Frontend multi-goal display: all active goals visible simultaneously in chat banner and home view

@@ -62,7 +62,7 @@ def check_goal_extraction(state: GraphState) -> dict:
         ))] + list(messages)
     )
 
-    if extraction.goal_text:
+    if extraction.goal_text and extraction.goal_text.strip().lower() not in ("none", "null"):
         invoke_args = {
             "patient_id": state["patient_id"],
             "goal_text": extraction.goal_text,

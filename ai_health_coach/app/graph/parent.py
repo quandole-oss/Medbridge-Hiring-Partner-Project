@@ -4,7 +4,7 @@ from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
-from app.graph.nodes.active import active_coaching_node
+from app.graph.nodes.active import _clean_tool_orphans, active_coaching_node
 from app.graph.nodes.memory import extract_insights_node
 from app.graph.nodes.onboarding import check_goal_extraction, onboarding_node
 from app.graph.nodes.re_engaging import re_engaging_node
@@ -76,6 +76,7 @@ def retry_node(state: GraphState) -> dict:
         clean_messages.append(msg)
     clean_messages.reverse()
 
+    clean_messages = _clean_tool_orphans(clean_messages)
     response = llm.invoke([safety_augment] + clean_messages)
     return {
         "messages": [response],

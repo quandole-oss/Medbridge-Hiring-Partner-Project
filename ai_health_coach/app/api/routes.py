@@ -123,6 +123,8 @@ async def _build_goal_responses(
     goals = await get_active_goals(session, patient_id)
     goal_responses = []
     for g in goals:
+        if g.goal_text and g.goal_text.strip().lower() in ("none", "null"):
+            continue
         exercises = await get_exercises_by_goal(session, patient_id, g.goal_id)
         goal_responses.append(GoalResponse(
             goal_id=g.goal_id,
@@ -200,8 +202,16 @@ async def _run_chat_pipeline(
     ai_response = FALLBACK_MESSAGE
     for msg in reversed(result.get("messages", [])):
         if isinstance(msg, AIMessage):
-            ai_response = msg.content
-            break
+            content = msg.content
+            if isinstance(content, str):
+                ai_response = content
+            elif isinstance(content, list):
+                text_parts = [b.get("text", "") for b in content
+                              if isinstance(b, dict) and b.get("type") == "text"]
+                if text_parts:
+                    ai_response = " ".join(text_parts)
+            if ai_response != FALLBACK_MESSAGE:
+                break
 
     # Sync phase changes back to DB
     new_phase = result.get("current_phase", current_phase)
@@ -212,7 +222,10 @@ async def _run_chat_pipeline(
 
     # Load goals (may have changed during graph execution)
     goals = await get_active_goals(session, request.patient_id)
-    goal_text = result.get("current_goal") or _format_goal_summary(goals)
+    raw_goal = result.get("current_goal")
+    if raw_goal and raw_goal.strip().lower() in ("none", "null", "no goals set yet"):
+        raw_goal = None
+    goal_text = raw_goal or (_format_goal_summary(goals) if goals else None)
     goal_responses = await _build_goal_responses(session, request.patient_id)
 
     response = ChatResponse(

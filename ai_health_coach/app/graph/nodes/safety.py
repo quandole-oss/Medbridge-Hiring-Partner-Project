@@ -30,7 +30,16 @@ def safety_check_node(state: GraphState) -> dict:
     last_ai_message = None
     for msg in reversed(messages):
         if isinstance(msg, AIMessage):
-            last_ai_message = msg
+            content = msg.content
+            # If content is a list of blocks, extract text
+            if isinstance(content, list):
+                text_parts = [b.get("text", "") for b in content
+                              if isinstance(b, dict) and b.get("type") == "text"]
+                if not text_parts:
+                    continue  # Skip pure tool_use messages
+                last_ai_message = AIMessage(content=" ".join(text_parts))
+            else:
+                last_ai_message = msg
             break
 
     if not last_ai_message:
