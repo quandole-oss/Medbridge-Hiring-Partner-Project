@@ -1,5 +1,14 @@
 # AI Health Coach — TODO
 
+## Streaming Chat Responses
+
+- [x] Extract `_run_chat_pipeline()` shared helper from `chat()` endpoint
+- [x] Add `POST /chat/stream` SSE endpoint (meta → token → done events)
+- [x] Add `api.sendMessageStream()` with ReadableStream SSE parser + AbortController support
+- [x] Add `addStreamingMessage()` for incremental DOM rendering
+- [x] Update `sendGreeting()`, `handleSend()`, `handleDrawerSend()` to use streaming
+- [x] Typing indicator hides on `onMeta`, input re-enables immediately
+
 ## Adaptive Patient Memory
 
 - [x] PatientInsight DB model with confidence, category, reinforcement tracking

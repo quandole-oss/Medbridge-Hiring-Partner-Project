@@ -1,10 +1,13 @@
+import asyncio
 import datetime
+import json
 import logging
 import time
 from collections import OrderedDict
 from typing import Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -105,19 +108,10 @@ async def health_check():
     return HealthResponse(status="ok")
 
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat(
-    request: ChatRequest,
-    _api_key: str = Depends(verify_api_key),
-    session: AsyncSession = Depends(get_db_session),
-):
-    # Idempotency check
-    if request.idempotency_key:
-        _clean_idempotency_cache()
-        if request.idempotency_key in _idempotency_cache:
-            cached, _ = _idempotency_cache[request.idempotency_key]
-            return cached
-
+async def _run_chat_pipeline(
+    request: ChatRequest, session: AsyncSession
+) -> ChatResponse:
+    """Shared pipeline: consent check, graph invocation, response assembly."""
     # Verify consent
     await verify_consent(request.patient_id, session)
 
@@ -196,6 +190,68 @@ async def chat(
     )
 
     return response
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(
+    request: ChatRequest,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    # Idempotency check
+    if request.idempotency_key:
+        _clean_idempotency_cache()
+        if request.idempotency_key in _idempotency_cache:
+            cached, _ = _idempotency_cache[request.idempotency_key]
+            return cached
+
+    return await _run_chat_pipeline(request, session)
+
+
+@router.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    # Idempotency check
+    if request.idempotency_key:
+        _clean_idempotency_cache()
+        if request.idempotency_key in _idempotency_cache:
+            cached, _ = _idempotency_cache[request.idempotency_key]
+            result = cached
+        else:
+            result = await _run_chat_pipeline(request, session)
+    else:
+        result = await _run_chat_pipeline(request, session)
+
+    async def event_generator():
+        # Send metadata first
+        meta = {
+            "patient_id": result.patient_id,
+            "current_phase": result.current_phase,
+            "current_goal": result.current_goal,
+        }
+        yield f"event: meta\ndata: {json.dumps(meta)}\n\n"
+
+        # Stream words with short delays
+        words = result.response.split(" ")
+        for i, word in enumerate(words):
+            text = word if i == 0 else " " + word
+            yield f"event: token\ndata: {json.dumps({'text': text})}\n\n"
+            await asyncio.sleep(0.03)
+
+        # Send done event with full text
+        yield f"event: done\ndata: {json.dumps({'full_text': result.response})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/events/trigger", response_model=EventTriggerResponse)

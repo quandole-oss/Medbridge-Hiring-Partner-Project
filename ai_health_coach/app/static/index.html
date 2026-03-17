@@ -1192,6 +1192,50 @@
           }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
         },
 
+        sendMessageStream: function (patientId, message, callbacks, abortController) {
+          var signal = abortController ? abortController.signal : undefined;
+          return fetch('/chat/stream', {
+            method: 'POST', headers: api.headers(),
+            body: JSON.stringify({ patient_id: patientId, message: message, idempotency_key: api.idempotencyKey() }),
+            signal: signal
+          }).then(function (r) {
+            if (!r.ok) throw { status: r.status, response: r };
+            var reader = r.body.getReader();
+            var decoder = new TextDecoder();
+            var buffer = '';
+
+            function processChunk() {
+              return reader.read().then(function (result) {
+                if (result.done) return;
+                buffer += decoder.decode(result.value, { stream: true });
+                var lines = buffer.split('\n');
+                buffer = lines.pop();
+                var eventType = null;
+                for (var i = 0; i < lines.length; i++) {
+                  var line = lines[i];
+                  if (line.indexOf('event: ') === 0) {
+                    eventType = line.substring(7);
+                  } else if (line.indexOf('data: ') === 0 && eventType) {
+                    var data = JSON.parse(line.substring(6));
+                    if (eventType === 'meta' && callbacks.onMeta) callbacks.onMeta(data);
+                    else if (eventType === 'token' && callbacks.onToken) callbacks.onToken(data);
+                    else if (eventType === 'done' && callbacks.onDone) callbacks.onDone(data);
+                    eventType = null;
+                  } else if (line === '') {
+                    eventType = null;
+                  }
+                }
+                return processChunk();
+              });
+            }
+            return processChunk();
+          }).catch(function (err) {
+            if (err.name === 'AbortError') return;
+            if (callbacks.onError) callbacks.onError(err);
+            else throw err;
+          });
+        },
+
         getExercises: function (patientId, day) {
           var url = '/patients/' + encodeURIComponent(patientId) + '/exercises';
           if (day != null) url += '?day=' + day;
@@ -1312,6 +1356,32 @@
         autoScroll();
       }
 
+      function addStreamingMessage(role) {
+        var div = document.createElement('div');
+        div.className = 'message ' + role;
+        messagesArea.insertBefore(div, typingIndicator);
+        autoScroll();
+        return {
+          append: function (text) {
+            div.appendChild(document.createTextNode(text));
+            autoScroll();
+          },
+          finalize: function (fullText) {
+            if (!fullText) {
+              if (div.parentNode) div.parentNode.removeChild(div);
+              return;
+            }
+            div.innerHTML = '';
+            var lines = fullText.split('\n');
+            for (var i = 0; i < lines.length; i++) {
+              if (i > 0) div.appendChild(document.createElement('br'));
+              div.appendChild(document.createTextNode(lines[i]));
+            }
+            state.messages.push({ role: role, text: fullText });
+          }
+        };
+      }
+
       function renderMessageTo(container, role, text, beforeEl) {
         var div = document.createElement('div');
         div.className = 'message ' + role;
@@ -1420,16 +1490,27 @@
 
       function sendGreeting() {
         setLoading(true);
-        api.sendMessage(state.patientId, 'Hello')
-          .then(function (data) {
-            addMessage('coach', data.response);
-            updatePhase(data.current_phase);
-            updateGoal(data.current_goal);
-          })
-          .catch(function (err) {
+        var streaming = addStreamingMessage('coach');
+        var fullText = '';
+        api.sendMessageStream(state.patientId, 'Hello', {
+          onMeta: function (meta) {
+            setLoading(false);
+            updatePhase(meta.current_phase);
+            updateGoal(meta.current_goal);
+          },
+          onToken: function (tok) {
+            fullText += tok.text;
+            streaming.append(tok.text);
+          },
+          onDone: function (data) {
+            streaming.finalize(data.full_text);
+          },
+          onError: function (err) {
+            streaming.finalize('');
+            setLoading(false);
             showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
-          })
-          .finally(function () { setLoading(false); });
+          }
+        });
       }
 
       // ─── Chat flow ───
@@ -1442,19 +1523,27 @@
         adjustTextarea();
         setLoading(true);
 
-        api.sendMessage(state.patientId, text)
-          .then(function (data) {
-            addMessage('coach', data.response);
-            updatePhase(data.current_phase);
-            updateGoal(data.current_goal);
-          })
-          .catch(function (err) {
-            showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
-          })
-          .finally(function () {
+        var streaming = addStreamingMessage('coach');
+        api.sendMessageStream(state.patientId, text, {
+          onMeta: function (meta) {
             setLoading(false);
             messageInput.focus();
-          });
+            updatePhase(meta.current_phase);
+            updateGoal(meta.current_goal);
+          },
+          onToken: function (tok) {
+            streaming.append(tok.text);
+          },
+          onDone: function (data) {
+            streaming.finalize(data.full_text);
+          },
+          onError: function (err) {
+            streaming.finalize('');
+            setLoading(false);
+            messageInput.focus();
+            showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
+          }
+        });
       }
 
       function handleDrawerSend() {
@@ -1467,20 +1556,28 @@
         adjustDrawerTextarea();
         setLoading(true);
 
-        api.sendMessage(state.patientId, text)
-          .then(function (data) {
-            addMessage('coach', data.response);
-            updatePhase(data.current_phase);
-            updateGoal(data.current_goal);
-            syncDrawerMessages();
-          })
-          .catch(function (err) {
-            showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
-          })
-          .finally(function () {
+        var streaming = addStreamingMessage('coach');
+        api.sendMessageStream(state.patientId, text, {
+          onMeta: function (meta) {
             setLoading(false);
             drawerInput.focus();
-          });
+            updatePhase(meta.current_phase);
+            updateGoal(meta.current_goal);
+          },
+          onToken: function (tok) {
+            streaming.append(tok.text);
+          },
+          onDone: function (data) {
+            streaming.finalize(data.full_text);
+            syncDrawerMessages();
+          },
+          onError: function (err) {
+            streaming.finalize('');
+            setLoading(false);
+            drawerInput.focus();
+            showError(err.status ? friendlyError(err.status) : 'Unable to connect. Please try again.');
+          }
+        });
       }
 
       function adjustTextarea() {

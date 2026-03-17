@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Streaming chat responses via SSE: `POST /chat/stream` endpoint streams safe responses word-by-word
+- Frontend streams tokens incrementally with `addStreamingMessage()` and SSE parser
+- Typing indicator hides and input re-enables on first data (meta event), not stream end
 - Adaptive Patient Memory: coach extracts and remembers patient insights across conversations
 - `PatientInsight` model with confidence scoring, reinforcement tracking, and decay
 - `extract_insights` graph node runs post-safety on Haiku for cheap structured extraction
