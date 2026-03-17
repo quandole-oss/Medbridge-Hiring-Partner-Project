@@ -22,6 +22,25 @@ class AlertClinicianInput(BaseModel):
 @tool(args_schema=SetGoalInput)
 def set_goal(patient_id: str, goal_text: str) -> str:
     """Persist a SMART goal for the patient. Use when the patient has articulated a clear goal."""
+    import asyncio
+    from app.db.session import async_session_factory
+    from app.db.repository import create_goal as _create_goal
+
+    async def _persist():
+        async with async_session_factory() as session:
+            await _create_goal(session, patient_id, goal_text)
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                pool.submit(lambda: asyncio.run(_persist())).result()
+        else:
+            loop.run_until_complete(_persist())
+    except RuntimeError:
+        asyncio.run(_persist())
+
     return f"Goal set for patient {patient_id}: {goal_text}"
 
 

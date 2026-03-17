@@ -127,6 +127,8 @@ async def _run_chat_pipeline(
 
     tone = _calculate_tone(patient.enrollment_date)
 
+    pre_goal = await get_active_goal(session, request.patient_id)
+
     try:
         result = await compiled_graph.ainvoke(
             {
@@ -134,7 +136,7 @@ async def _run_chat_pipeline(
                 "current_phase": current_phase,
                 "messages": [HumanMessage(content=request.message)],
                 "unanswered_count": patient.unanswered_count,
-                "current_goal": None,
+                "current_goal": pre_goal.goal_text if pre_goal else None,
                 "tone_instruction": tone,
                 "safety_retry_count": 0,
                 "enrollment_date": (

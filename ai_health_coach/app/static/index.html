@@ -1338,6 +1338,7 @@
       }
 
       function updateGoal(goal) {
+        if (goal == null && state.currentGoal) return;
         var previousGoal = state.currentGoal;
         state.currentGoal = goal;
         if (goal) {

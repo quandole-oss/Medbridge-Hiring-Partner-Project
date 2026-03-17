@@ -2,7 +2,7 @@ import logging
 
 from langchain_core.messages import SystemMessage
 
-from app.db.repository import get_disengaged_patients, log_audit_event, update_patient_phase
+from app.db.repository import get_active_goal, get_disengaged_patients, log_audit_event, update_patient_phase
 from app.db.session import async_session_factory
 from app.graph.parent import compiled_graph
 from app.graph.state import Phase
@@ -36,6 +36,7 @@ async def run_disengagement_check() -> int:
                 )
 
                 try:
+                    sched_goal = await get_active_goal(session, patient.patient_id)
                     result = await compiled_graph.ainvoke(
                         {
                             "patient_id": patient.patient_id,
@@ -48,7 +49,7 @@ async def run_disengagement_check() -> int:
                                 )
                             ],
                             "unanswered_count": patient.unanswered_count + 1,
-                            "current_goal": None,
+                            "current_goal": sched_goal.goal_text if sched_goal else None,
                             "tone_instruction": "nudge",
                             "safety_retry_count": 0,
                             "enrollment_date": (
