@@ -71,7 +71,7 @@ async def test_consent_grant(client, db_session, api_headers):
 
 
 @pytest.mark.asyncio
-async def test_invalid_event_transition(client, db_session, api_headers):
+async def test_consent_grant_idempotent(client, db_session, api_headers):
     patient = Patient(patient_id="p1", consent_status=True, current_phase="active")
     db_session.add(patient)
     await db_session.commit()
@@ -81,8 +81,24 @@ async def test_invalid_event_transition(client, db_session, api_headers):
         json={"patient_id": "p1", "event_type": "consent_granted"},
         headers=api_headers,
     )
-    # Already consented, should return existing state
     assert response.status_code == 200
+    data = response.json()
+    assert "Consent already granted" in data["message"]
+
+
+@pytest.mark.asyncio
+async def test_invalid_event_returns_422(client, db_session, api_headers):
+    patient = Patient(patient_id="p1", consent_status=True, current_phase="active")
+    db_session.add(patient)
+    await db_session.commit()
+
+    response = await client.post(
+        "/events/trigger",
+        json={"patient_id": "p1", "event_type": "manual_phase_override"},
+        headers=api_headers,
+    )
+    assert response.status_code == 422
+    assert "Invalid transition" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

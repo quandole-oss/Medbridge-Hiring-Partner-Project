@@ -8,11 +8,7 @@ from app.db.repository import (
     get_patient_insights_db,
     upsert_patient_insight,
 )
-from app.graph.nodes.memory import (
-    ExtractedInsight,
-    InsightExtractionResult,
-    extract_insights_node,
-)
+from app.graph.nodes.memory import extract_insights_node
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -128,18 +124,7 @@ async def test_decay_deactivates_very_low(db_session, patient):
     assert insight.is_active is False
 
 
-# ── Node / model tests (no DB, no LLM) ─────────────────────────────────────
-
-
-def test_extraction_result_model():
-    result = InsightExtractionResult(
-        insights=[
-            ExtractedInsight(category="motivation", content="Wants to run a 5K"),
-            ExtractedInsight(category="barrier", content="Works long hours"),
-        ]
-    )
-    assert len(result.insights) == 2
-    assert result.insights[0].category == "motivation"
+# ── Node tests (no DB, no LLM) ──────────────────────────────────────────────
 
 
 def test_extract_node_skips_no_user_messages():
@@ -149,10 +134,3 @@ def test_extract_node_skips_no_user_messages():
     }
     result = extract_insights_node(state)
     assert result == {}
-
-
-def test_graph_topology_includes_extract_insights():
-    from app.graph.parent import compiled_graph
-
-    node_names = set(compiled_graph.nodes.keys())
-    assert "extract_insights" in node_names

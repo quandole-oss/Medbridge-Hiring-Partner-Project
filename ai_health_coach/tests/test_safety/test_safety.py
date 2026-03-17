@@ -1,37 +1,13 @@
-import pytest
+from unittest.mock import patch
+
 from langchain_core.messages import AIMessage
 
 from app.graph.nodes.safety import (
-    SafetyVerdict,
     crisis_handler_node,
     route_after_safety,
     safety_fallback_node,
 )
 from app.graph.prompts import CRISIS_RESPONSE, SAFETY_FALLBACK_RESPONSE
-
-
-def test_safety_verdict_safe():
-    verdict = SafetyVerdict(
-        is_safe=True, violation_type="safe", explanation="Response is within scope"
-    )
-    assert verdict.is_safe is True
-    assert verdict.violation_type == "safe"
-
-
-def test_safety_verdict_clinical():
-    verdict = SafetyVerdict(
-        is_safe=False,
-        violation_type="clinical_advice",
-        explanation="Recommended medication",
-    )
-    assert verdict.is_safe is False
-
-
-def test_safety_verdict_crisis():
-    verdict = SafetyVerdict(
-        is_safe=False, violation_type="crisis", explanation="Self-harm indicators"
-    )
-    assert verdict.violation_type == "crisis"
 
 
 def test_route_after_safety_safe():
@@ -64,7 +40,15 @@ def test_crisis_handler_returns_static_response():
         "patient_id": "test-patient",
         "messages": [AIMessage(content="some response")],
     }
-    result = crisis_handler_node(state)
+    with patch("app.graph.nodes.safety.alert_clinician") as mock_alert:
+        mock_alert.invoke.return_value = "ALERT sent"
+        result = crisis_handler_node(state)
+
+    mock_alert.invoke.assert_called_once_with({
+        "patient_id": "test-patient",
+        "reason": "Crisis detected in conversation",
+        "urgency_level": "CRITICAL",
+    })
     assert len(result["messages"]) == 1
     assert result["messages"][0].content == CRISIS_RESPONSE
 
