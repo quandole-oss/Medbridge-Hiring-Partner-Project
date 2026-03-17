@@ -18,6 +18,7 @@ from app.api.schemas import (
     AdjustExerciseResponse,
     ChatRequest,
     ChatResponse,
+    CreateGoalRequest,
     EducationContentResponse,
     EventTriggerRequest,
     EventTriggerResponse,
@@ -25,6 +26,7 @@ from app.api.schemas import (
     ExerciseCompleteResponse,
     ExerciseProgramResponse,
     ExerciseResponse,
+    GoalResponse,
     HealthResponse,
     OutcomeReportRequest,
     OutcomeReportResponse,
@@ -32,16 +34,21 @@ from app.api.schemas import (
     PathwayAdvanceResponse,
     PathwayStatusResponse,
     PatientStatusResponse,
+    UpdateGoalRequest,
 )
 from app.db.repository import (
     DAY_THEMES,
+    create_goal,
     create_outcome_report,
+    deactivate_goal,
     find_replacement_target,
     get_active_goal,
+    get_active_goals,
     get_adherence_stats,
     get_education_for_day,
     get_exercise_by_id,
     get_exercise_completions,
+    get_exercises_by_goal,
     get_outcome_reports,
     get_outcome_summary,
     get_patient,
@@ -53,6 +60,7 @@ from app.db.repository import (
     mark_exercise_complete,
     replace_exercise,
     unmark_exercise_complete,
+    update_goal,
     update_patient_last_message,
     update_patient_phase,
 )
@@ -108,6 +116,38 @@ async def health_check():
     return HealthResponse(status="ok")
 
 
+async def _build_goal_responses(
+    session: AsyncSession, patient_id: str
+) -> list:
+    """Build GoalResponse list for a patient."""
+    goals = await get_active_goals(session, patient_id)
+    goal_responses = []
+    for g in goals:
+        exercises = await get_exercises_by_goal(session, patient_id, g.goal_id)
+        goal_responses.append(GoalResponse(
+            goal_id=g.goal_id,
+            goal_text=g.goal_text,
+            target_date=g.target_date.isoformat() if g.target_date else None,
+            is_active=g.is_active,
+            created_at=g.created_at.isoformat() if g.created_at else "",
+            exercise_count=len(exercises),
+        ))
+    return goal_responses
+
+
+def _format_goal_summary(goals) -> str:
+    """Format goals into a string for graph state injection."""
+    if not goals:
+        return "No goals set yet"
+    lines = []
+    for i, g in enumerate(goals, 1):
+        line = f"{i}. {g.goal_text}"
+        if g.target_date:
+            line += f" (target: {g.target_date})"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 async def _run_chat_pipeline(
     request: ChatRequest, session: AsyncSession
 ) -> ChatResponse:
@@ -127,7 +167,8 @@ async def _run_chat_pipeline(
 
     tone = _calculate_tone(patient.enrollment_date)
 
-    pre_goal = await get_active_goal(session, request.patient_id)
+    goals = await get_active_goals(session, request.patient_id)
+    goal_summary = _format_goal_summary(goals)
 
     try:
         result = await compiled_graph.ainvoke(
@@ -136,7 +177,7 @@ async def _run_chat_pipeline(
                 "current_phase": current_phase,
                 "messages": [HumanMessage(content=request.message)],
                 "unanswered_count": patient.unanswered_count,
-                "current_goal": pre_goal.goal_text if pre_goal else None,
+                "current_goal": goal_summary,
                 "tone_instruction": tone,
                 "safety_retry_count": 0,
                 "enrollment_date": (
@@ -169,15 +210,17 @@ async def _run_chat_pipeline(
 
     await update_patient_last_message(session, request.patient_id)
 
-    # Load goal
-    goal = await get_active_goal(session, request.patient_id)
-    goal_text = result.get("current_goal") or (goal.goal_text if goal else None)
+    # Load goals (may have changed during graph execution)
+    goals = await get_active_goals(session, request.patient_id)
+    goal_text = result.get("current_goal") or _format_goal_summary(goals)
+    goal_responses = await _build_goal_responses(session, request.patient_id)
 
     response = ChatResponse(
         patient_id=request.patient_id,
         response=ai_response,
         current_phase=new_phase,
         current_goal=goal_text,
+        goals=goal_responses,
     )
 
     # Cache for idempotency
@@ -233,6 +276,7 @@ async def chat_stream(
             "patient_id": result.patient_id,
             "current_phase": result.current_phase,
             "current_goal": result.current_goal,
+            "goals": [g.dict() for g in result.goals],
         }
         yield f"event: meta\ndata: {json.dumps(meta)}\n\n"
 
@@ -320,6 +364,7 @@ async def patient_status(
         raise HTTPException(status_code=404, detail="Patient not found")
 
     goal = await get_active_goal(session, patient_id)
+    goal_responses = await _build_goal_responses(session, patient_id)
 
     return PatientStatusResponse(
         patient_id=patient_id,
@@ -332,6 +377,155 @@ async def patient_status(
         enrollment_date=(
             patient.enrollment_date.isoformat() if patient.enrollment_date else None
         ),
+        goals=goal_responses,
+    )
+
+
+# ── Goal endpoints ────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/patients/{patient_id}/goals",
+    response_model=GoalResponse,
+    status_code=201,
+)
+async def create_goal_endpoint(
+    patient_id: str,
+    request: CreateGoalRequest,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    # Enforce max 3 active goals
+    existing_goals = await get_active_goals(session, patient_id)
+    if len(existing_goals) >= 3:
+        raise HTTPException(
+            status_code=422,
+            detail="Maximum 3 active goals allowed. Deactivate one before adding another.",
+        )
+
+    target_date = None
+    if request.target_date:
+        try:
+            target_date = datetime.date.fromisoformat(request.target_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid target_date format. Use YYYY-MM-DD.")
+
+    goal = await create_goal(session, patient_id, request.goal_text, target_date)
+
+    # Trigger AI exercise generation
+    exercise_count = 0
+    try:
+        from app.services.exercise_generator import generate_and_persist_exercises
+        new_exercises = await generate_and_persist_exercises(
+            session, patient_id, goal.goal_id, goal.goal_text, goal.target_date,
+        )
+        exercise_count = len(new_exercises)
+    except Exception:
+        logger.exception("Exercise generation failed for goal %d", goal.goal_id)
+
+    await log_audit_event(
+        session, patient_id, "goal_created",
+        {"goal_id": goal.goal_id, "goal_text": goal.goal_text, "exercises_generated": exercise_count},
+    )
+
+    return GoalResponse(
+        goal_id=goal.goal_id,
+        goal_text=goal.goal_text,
+        target_date=goal.target_date.isoformat() if goal.target_date else None,
+        is_active=goal.is_active,
+        created_at=goal.created_at.isoformat() if goal.created_at else "",
+        exercise_count=exercise_count,
+    )
+
+
+@router.get(
+    "/patients/{patient_id}/goals",
+    response_model=list,
+)
+async def list_goals(
+    patient_id: str,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    return await _build_goal_responses(session, patient_id)
+
+
+@router.patch(
+    "/patients/{patient_id}/goals/{goal_id}",
+    response_model=GoalResponse,
+)
+async def update_goal_endpoint(
+    patient_id: str,
+    goal_id: int,
+    request: UpdateGoalRequest,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    target_date = None
+    if request.target_date is not None:
+        try:
+            target_date = datetime.date.fromisoformat(request.target_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid target_date format. Use YYYY-MM-DD.")
+
+    goal = await update_goal(
+        session, goal_id,
+        goal_text=request.goal_text,
+        target_date=target_date,
+        is_active=request.is_active,
+    )
+    if not goal or goal.patient_id != patient_id:
+        raise HTTPException(status_code=404, detail="Goal not found")
+
+    exercises = await get_exercises_by_goal(session, patient_id, goal_id)
+
+    return GoalResponse(
+        goal_id=goal.goal_id,
+        goal_text=goal.goal_text,
+        target_date=goal.target_date.isoformat() if goal.target_date else None,
+        is_active=goal.is_active,
+        created_at=goal.created_at.isoformat() if goal.created_at else "",
+        exercise_count=len(exercises),
+    )
+
+
+@router.delete(
+    "/patients/{patient_id}/goals/{goal_id}",
+    status_code=204,
+)
+async def delete_goal_endpoint(
+    patient_id: str,
+    goal_id: int,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    goal = await deactivate_goal(session, goal_id)
+    if not goal or goal.patient_id != patient_id:
+        raise HTTPException(status_code=404, detail="Goal not found")
+
+    # Deactivate associated exercises
+    from app.services.exercise_generator import remove_exercises_for_goal
+    deactivated = await remove_exercises_for_goal(session, patient_id, goal_id)
+
+    await log_audit_event(
+        session, patient_id, "goal_deactivated",
+        {"goal_id": goal_id, "exercises_deactivated": deactivated},
     )
 
 
@@ -360,6 +554,19 @@ async def get_exercises(
     completions = await get_exercise_completions(session, patient_id, completion_date)
     completion_map = {c.exercise_id: c for c in completions}
 
+    # Build goal lookup for exercise attribution
+    goal_map = {}
+    if exercises:
+        goal_ids = {e.goal_id for e in exercises if e.goal_id is not None}
+        if goal_ids:
+            from app.db.models import Goal as GoalModel
+            from sqlalchemy import select as sa_select
+            goal_result = await session.execute(
+                sa_select(GoalModel).where(GoalModel.goal_id.in_(goal_ids))
+            )
+            for g in goal_result.scalars().all():
+                goal_map[g.goal_id] = g.goal_text
+
     exercise_responses = []
     for e in exercises:
         comp = completion_map.get(e.exercise_id)
@@ -383,6 +590,8 @@ async def get_exercises(
                 set_statuses=comp.set_statuses if comp else None,
                 difficulty=comp.difficulty if comp else None,
                 feedback=comp.feedback if comp else None,
+                goal_id=e.goal_id,
+                goal_text=goal_map.get(e.goal_id) if e.goal_id else None,
             )
         )
 

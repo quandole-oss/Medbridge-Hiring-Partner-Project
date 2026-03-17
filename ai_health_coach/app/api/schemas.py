@@ -3,10 +3,35 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+class CreateGoalRequest(BaseModel):
+    goal_text: str
+    target_date: Optional[str] = None  # ISO YYYY-MM-DD
+
+
+class UpdateGoalRequest(BaseModel):
+    goal_text: Optional[str] = None
+    target_date: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class GoalWithExercisesResponse(BaseModel):
+    goal: "GoalResponse"
+    exercises: List["ExerciseResponse"] = []
+
+
 class ChatRequest(BaseModel):
     patient_id: str
     message: str
     idempotency_key: Optional[str] = None
+
+
+class GoalResponse(BaseModel):
+    goal_id: int
+    goal_text: str
+    target_date: Optional[str] = None
+    is_active: bool
+    created_at: str
+    exercise_count: int = 0
 
 
 class ChatResponse(BaseModel):
@@ -14,6 +39,7 @@ class ChatResponse(BaseModel):
     response: str
     current_phase: str
     current_goal: Optional[str] = None
+    goals: List[GoalResponse] = []
 
 
 class EventTriggerRequest(BaseModel):
@@ -37,6 +63,7 @@ class PatientStatusResponse(BaseModel):
     unanswered_count: int
     last_message_at: Optional[str]
     enrollment_date: Optional[str] = None
+    goals: List[GoalResponse] = []
 
 
 class HealthResponse(BaseModel):
@@ -62,6 +89,8 @@ class ExerciseResponse(BaseModel):
     set_statuses: Optional[List[Optional[str]]] = None
     difficulty: Optional[str] = None
     feedback: Optional[str] = None
+    goal_id: Optional[int] = None
+    goal_text: Optional[str] = None
 
 
 class ExerciseProgramResponse(BaseModel):

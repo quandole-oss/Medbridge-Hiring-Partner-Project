@@ -306,6 +306,7 @@ async def seed_demo_patient(session: AsyncSession) -> None:
     goal = Goal(
         patient_id=DEMO_PATIENT_ID,
         goal_text="Walk my daughter down the aisle without a cane at her wedding in June",
+        target_date=(now + datetime.timedelta(days=90)).date(),
         is_active=True,
     )
     session.add(goal)

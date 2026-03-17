@@ -16,6 +16,10 @@ class GoalExtraction(BaseModel):
     goal_text: Optional[str] = Field(
         description="The SMART goal extracted from the conversation, or None if no goal was set"
     )
+    target_date: Optional[str] = Field(
+        None,
+        description="Target date for the goal in ISO format (YYYY-MM-DD), if mentioned"
+    )
     is_refusal: bool = Field(
         description="Whether the patient declined to set a goal"
     )
@@ -59,10 +63,13 @@ def check_goal_extraction(state: GraphState) -> dict:
     )
 
     if extraction.goal_text:
-        set_goal.invoke({
+        invoke_args = {
             "patient_id": state["patient_id"],
             "goal_text": extraction.goal_text,
-        })
+        }
+        if extraction.target_date:
+            invoke_args["target_date"] = extraction.target_date
+        set_goal.invoke(invoke_args)
         logger.info("Goal extracted for %s: %s", state["patient_id"], extraction.goal_text)
         return {
             "current_phase": Phase.ACTIVE,

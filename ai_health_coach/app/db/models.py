@@ -89,12 +89,14 @@ class Goal(Base):
     goal_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     patient_id: Mapped[str] = mapped_column(String, ForeignKey("patients.patient_id"))
     goal_text: Mapped[str] = mapped_column(String)
+    target_date: Mapped[Optional[datetime.date]] = mapped_column(Date, default=None)
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     patient: Mapped["Patient"] = relationship(back_populates="goals")
+    exercises: Mapped[List["Exercise"]] = relationship("Exercise", back_populates="goal")
 
 
 class AuditLog(Base):
@@ -137,8 +139,12 @@ class Exercise(Base):
     replaced_by_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("exercises.exercise_id"), default=None
     )
+    goal_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("goals.goal_id"), default=None
+    )
 
     patient: Mapped["Patient"] = relationship(back_populates="exercises")
+    goal: Mapped[Optional["Goal"]] = relationship("Goal", back_populates="exercises")
 
 
 class ExerciseCompletion(Base):

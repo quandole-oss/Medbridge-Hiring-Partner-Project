@@ -19,6 +19,8 @@ async def init_db() -> None:
             "ALTER TABLE exercises ADD COLUMN week_number INTEGER DEFAULT 1",
             "ALTER TABLE patients ADD COLUMN pathway_id INTEGER",
             "ALTER TABLE patients ADD COLUMN current_week INTEGER DEFAULT 1",
+            "ALTER TABLE goals ADD COLUMN target_date DATE",
+            "ALTER TABLE exercises ADD COLUMN goal_id INTEGER REFERENCES goals(goal_id)",
         ]
         for migration in migrations:
             try:

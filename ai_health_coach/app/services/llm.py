@@ -34,6 +34,47 @@ def get_safety_llm() -> ChatAnthropic:
     )
 
 
+class GeneratedExercise(BaseModel):
+    name: str = Field(description="Name of the exercise")
+    description: str = Field(description="Clear instructions for the patient")
+    setup_instructions: Optional[str] = Field(
+        None, description="How to set up for the exercise"
+    )
+    execution_steps: Optional[str] = Field(
+        None, description="Step-by-step execution"
+    )
+    form_cues: Optional[str] = Field(
+        None, description="Form cues to watch for"
+    )
+    common_mistakes: Optional[str] = Field(
+        None, description="Common mistakes to avoid"
+    )
+    body_part: str = Field(description="Primary body part targeted")
+    sets: int = Field(description="Number of sets")
+    reps: int = Field(description="Number of reps per set")
+    hold_seconds: Optional[int] = Field(
+        None, description="Hold duration in seconds, if applicable"
+    )
+    day_number: int = Field(description="Day of the 7-day cycle (1-7)")
+    reasoning: str = Field(description="Why this exercise helps the goal")
+
+
+class ExerciseGenerationResult(BaseModel):
+    exercises: List[GeneratedExercise] = Field(
+        description="List of generated exercises"
+    )
+    workload_notes: str = Field(
+        description="Notes about workload distribution"
+    )
+
+
+class RebalanceResult(BaseModel):
+    exercise_ids_to_deactivate: List[int] = Field(
+        description="IDs of exercises to deactivate"
+    )
+    reasoning: str = Field(description="Why these exercises were chosen for removal")
+
+
 class ExerciseAdjustment(BaseModel):
     name: str = Field(description="Name of the replacement exercise")
     description: str = Field(description="Clear instructions for the patient")
@@ -125,3 +166,85 @@ async def get_exercise_adjustment(
                 ),
                 "reasoning": "Increased intensity for progression. Please discuss with your care team for personalized adjustments.",
             }
+
+
+async def generate_exercises_for_goal(
+    goal_text: str,
+    target_date: Optional[str],
+    existing_exercises_summary: str,
+    daily_counts: dict,
+    max_per_day: int = 5,
+) -> ExerciseGenerationResult:
+    """Use LLM to generate goal-specific exercises distributed across the 7-day cycle."""
+    available_slots = {d: max_per_day - daily_counts.get(d, 0) for d in range(1, 8)}
+
+    system_prompt = (
+        "You are a physical therapist program designer. Generate 2-4 exercises "
+        "for a patient's rehabilitation goal. Distribute them across a 7-day cycle.\n\n"
+        "Rules:\n"
+        "- Each exercise must be appropriate for at-home rehabilitation\n"
+        "- Prefer days with more available slots\n"
+        "- Stay within the available slots per day\n"
+        "- Consider the target date for intensity planning (closer = more focused)\n"
+        "- Do not duplicate exercises already in the program\n"
+        "- Include clear setup instructions, execution steps, form cues, and common mistakes\n"
+        "- Body parts should match the goal (e.g., knee goal = knee/quad/hamstring exercises)\n"
+        f"\nAvailable slots per day: {available_slots}\n"
+        f"\nExisting exercises in program:\n{existing_exercises_summary}"
+    )
+
+    user_prompt = f"Goal: {goal_text}"
+    if target_date:
+        user_prompt += f"\nTarget date: {target_date}"
+
+    llm = get_conversation_llm().with_structured_output(ExerciseGenerationResult)
+
+    try:
+        result = await llm.ainvoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ])
+        # Clamp exercises to available slots
+        for ex in result.exercises:
+            ex.day_number = max(1, min(7, ex.day_number))
+        return result
+    except Exception:
+        logger.exception("Exercise generation LLM call failed")
+        return ExerciseGenerationResult(
+            exercises=[],
+            workload_notes="Exercise generation failed. Please try again later.",
+        )
+
+
+async def rebalance_exercises(
+    goals_summary: str,
+    exercises_by_day: dict,
+    max_per_day: int = 5,
+) -> RebalanceResult:
+    """Use LLM to advise which exercises to deactivate when daily cap is exceeded."""
+    system_prompt = (
+        "You are a physical therapist program designer. The patient's exercise program "
+        "has exceeded the daily maximum. Decide which exercises to deactivate.\n\n"
+        "Rules:\n"
+        "- Goals with closer target dates get priority\n"
+        "- Each goal should keep at least 2 exercises\n"
+        "- Baseline exercises (goal_id=None) are lowest priority for removal\n"
+        f"- Maximum exercises per day: {max_per_day}\n"
+        f"\nGoals:\n{goals_summary}\n"
+        f"\nExercises by day:\n{exercises_by_day}"
+    )
+
+    llm = get_conversation_llm().with_structured_output(RebalanceResult)
+
+    try:
+        result = await llm.ainvoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content="Which exercises should be deactivated to stay within the daily limit?"),
+        ])
+        return result
+    except Exception:
+        logger.exception("Exercise rebalance LLM call failed")
+        return RebalanceResult(
+            exercise_ids_to_deactivate=[],
+            reasoning="Rebalancing failed. Manual review recommended.",
+        )

@@ -4,7 +4,7 @@ from langchain_core.messages import AIMessage, SystemMessage
 
 from app.graph.prompts import ACTIVE_COACHING_SYSTEM_PROMPT
 from app.graph.state import GraphState
-from app.graph.tools import get_adherence_summary, get_education_recommendation, get_patient_insights, set_reminder
+from app.graph.tools import get_adherence_summary, get_education_recommendation, get_patient_insights, set_goal, set_reminder
 from app.services.llm import get_conversation_llm
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def active_coaching_node(state: GraphState) -> dict:
         patient_insights=insights,
     )
 
-    llm = get_conversation_llm().bind_tools([set_reminder, get_adherence_summary, get_education_recommendation])
+    llm = get_conversation_llm().bind_tools([set_goal, set_reminder, get_adherence_summary, get_education_recommendation])
     response = llm.invoke(
         [SystemMessage(content=system_prompt)] + list(state["messages"])
     )

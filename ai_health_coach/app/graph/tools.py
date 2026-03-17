@@ -1,3 +1,5 @@
+from typing import Optional
+
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
@@ -5,6 +7,9 @@ from pydantic import BaseModel, Field
 class SetGoalInput(BaseModel):
     patient_id: str = Field(description="The patient's unique identifier")
     goal_text: str = Field(description="The SMART goal text")
+    target_date: Optional[str] = Field(
+        None, description="Target date for the goal in ISO format (YYYY-MM-DD)"
+    )
 
 
 class SetReminderInput(BaseModel):
@@ -20,28 +25,53 @@ class AlertClinicianInput(BaseModel):
 
 
 @tool(args_schema=SetGoalInput)
-def set_goal(patient_id: str, goal_text: str) -> str:
-    """Persist a SMART goal for the patient. Use when the patient has articulated a clear goal."""
+def set_goal(patient_id: str, goal_text: str, target_date: Optional[str] = None) -> str:
+    """Persist a SMART goal for the patient. Use when the patient has articulated a clear goal. Patients can have up to 3 active goals."""
     import asyncio
+    import datetime as dt
     from app.db.session import async_session_factory
-    from app.db.repository import create_goal as _create_goal
+    from app.db.repository import create_goal as _create_goal, get_active_goals as _get_active_goals
+
+    parsed_date = None
+    if target_date:
+        try:
+            parsed_date = dt.date.fromisoformat(target_date)
+        except ValueError:
+            pass
 
     async def _persist():
         async with async_session_factory() as session:
-            await _create_goal(session, patient_id, goal_text)
+            # Check goal count
+            existing = await _get_active_goals(session, patient_id)
+            if len(existing) >= 3:
+                return "Cannot add more goals. The patient already has 3 active goals. They need to complete or remove one first."
+
+            goal = await _create_goal(session, patient_id, goal_text, parsed_date)
+
+            # Trigger exercise generation
+            exercise_count = 0
+            try:
+                from app.services.exercise_generator import generate_and_persist_exercises
+                new_exercises = await generate_and_persist_exercises(
+                    session, patient_id, goal.goal_id, goal.goal_text, goal.target_date,
+                )
+                exercise_count = len(new_exercises)
+            except Exception:
+                pass  # Graceful degradation
+
+            date_str = f" (target: {goal.target_date})" if goal.target_date else ""
+            return f"Goal set for patient {patient_id}: {goal_text}{date_str}. Generated {exercise_count} new exercises."
 
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as pool:
-                pool.submit(lambda: asyncio.run(_persist())).result()
+                return pool.submit(lambda: asyncio.run(_persist())).result()
         else:
-            loop.run_until_complete(_persist())
+            return loop.run_until_complete(_persist())
     except RuntimeError:
-        asyncio.run(_persist())
-
-    return f"Goal set for patient {patient_id}: {goal_text}"
+        return asyncio.run(_persist())
 
 
 @tool(args_schema=SetReminderInput)

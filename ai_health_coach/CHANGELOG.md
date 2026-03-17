@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Multi-goal system: patients can have up to 3 concurrent active goals with optional target dates
+- AI-driven exercise generation: new goals trigger LLM to generate 2-4 goal-specific exercises
+- Workload balancing: exercises distributed across 7-day cycle with max 5 per day cap
+- Goal attribution: each exercise indicates which goal it supports (`goal_id`, `goal_text`)
+- Dual goal creation: via `POST /goals` API endpoint and through chat conversation (`set_goal` tool)
+- Goal CRUD endpoints: `POST/GET /patients/{id}/goals`, `PATCH/DELETE /patients/{id}/goals/{id}`
+- Exercise generation orchestrator (`app/services/exercise_generator.py`) with rebalancing
+- `set_goal` tool now available in active coaching phase (not just onboarding)
+- Goal extraction during onboarding now captures `target_date`
+- Patient status and chat responses include `goals` list
+- 8 new tests covering goal CRUD, exercise generation, attribution, and status integration
 - Streaming chat responses via SSE: `POST /chat/stream` endpoint streams safe responses word-by-word
 - Frontend streams tokens incrementally with `addStreamingMessage()` and SSE parser
 - Typing indicator hides and input re-enables on first data (meta event), not stream end

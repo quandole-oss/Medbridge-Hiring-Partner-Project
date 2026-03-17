@@ -9,6 +9,26 @@
 - [x] Update `sendGreeting()`, `handleSend()`, `handleDrawerSend()` to use streaming
 - [x] Typing indicator hides on `onMeta`, input re-enables immediately
 
+## Multi-Goal System with AI Exercise Generation
+
+- [x] `Goal` model: add `target_date` column, `exercises` relationship
+- [x] `Exercise` model: add `goal_id` FK, `goal` relationship
+- [x] DB migrations for `target_date` and `goal_id` columns
+- [x] Repository: `get_active_goals`, `update_goal`, `deactivate_goal`, `get_exercises_by_goal`, `get_daily_exercise_counts`, `bulk_create_exercises`, `deactivate_exercises_for_goal`
+- [x] LLM service: `GeneratedExercise`, `ExerciseGenerationResult`, `generate_exercises_for_goal()`, `rebalance_exercises()`
+- [x] Exercise generator orchestrator: `generate_and_persist_exercises()`, `remove_exercises_for_goal()`
+- [x] API schemas: `CreateGoalRequest`, `UpdateGoalRequest`, `GoalResponse`, `GoalWithExercisesResponse`
+- [x] API: `POST/GET /patients/{id}/goals`, `PATCH/DELETE /patients/{id}/goals/{id}`
+- [x] Exercise endpoint includes `goal_id` and `goal_text` attribution
+- [x] Patient status and chat responses include `goals` list
+- [x] SSE meta event includes goals
+- [x] Active coaching prompt updated for multi-goal + goal setting
+- [x] `set_goal` tool: target_date support, max 3 enforcement, exercise generation trigger
+- [x] `set_goal` bound to active coaching node
+- [x] Onboarding `GoalExtraction` includes `target_date`
+- [x] Demo seed: goal has target_date
+- [x] 8 new tests (57 total passing)
+
 ## Adaptive Patient Memory
 
 - [x] PatientInsight DB model with confidence, category, reinforcement tracking

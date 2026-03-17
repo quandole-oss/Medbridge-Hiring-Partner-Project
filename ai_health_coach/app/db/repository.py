@@ -63,9 +63,12 @@ async def grant_consent(session: AsyncSession, patient_id: str) -> Patient:
 
 
 async def create_goal(
-    session: AsyncSession, patient_id: str, goal_text: str
+    session: AsyncSession,
+    patient_id: str,
+    goal_text: str,
+    target_date: Optional[datetime.date] = None,
 ) -> Goal:
-    goal = Goal(patient_id=patient_id, goal_text=goal_text)
+    goal = Goal(patient_id=patient_id, goal_text=goal_text, target_date=target_date)
     session.add(goal)
     await session.commit()
     await session.refresh(goal)
@@ -80,6 +83,101 @@ async def get_active_goal(session: AsyncSession, patient_id: str) -> Optional[Go
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def get_active_goals(session: AsyncSession, patient_id: str) -> List[Goal]:
+    result = await session.execute(
+        select(Goal)
+        .where(Goal.patient_id == patient_id, Goal.is_active == True)
+        .order_by(Goal.created_at.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def update_goal(
+    session: AsyncSession,
+    goal_id: int,
+    goal_text: Optional[str] = None,
+    target_date: Optional[datetime.date] = None,
+    is_active: Optional[bool] = None,
+) -> Optional[Goal]:
+    result = await session.execute(
+        select(Goal).where(Goal.goal_id == goal_id)
+    )
+    goal = result.scalar_one_or_none()
+    if not goal:
+        return None
+    if goal_text is not None:
+        goal.goal_text = goal_text
+    if target_date is not None:
+        goal.target_date = target_date
+    if is_active is not None:
+        goal.is_active = is_active
+    await session.commit()
+    await session.refresh(goal)
+    return goal
+
+
+async def deactivate_goal(session: AsyncSession, goal_id: int) -> Optional[Goal]:
+    return await update_goal(session, goal_id, is_active=False)
+
+
+async def get_exercises_by_goal(
+    session: AsyncSession, patient_id: str, goal_id: int
+) -> List[Exercise]:
+    result = await session.execute(
+        select(Exercise).where(
+            Exercise.patient_id == patient_id,
+            Exercise.goal_id == goal_id,
+            Exercise.is_active == True,
+        ).order_by(Exercise.day_number, Exercise.sort_order)
+    )
+    return list(result.scalars().all())
+
+
+async def get_daily_exercise_counts(
+    session: AsyncSession, patient_id: str
+) -> dict:
+    """Return {day_number: count} for active exercises."""
+    result = await session.execute(
+        select(Exercise.day_number, func.count(Exercise.exercise_id))
+        .where(Exercise.patient_id == patient_id, Exercise.is_active == True)
+        .group_by(Exercise.day_number)
+    )
+    return {row[0]: row[1] for row in result.all()}
+
+
+async def bulk_create_exercises(
+    session: AsyncSession, patient_id: str, exercises_data: List[dict]
+) -> List[Exercise]:
+    exercises = []
+    for data in exercises_data:
+        exercise = Exercise(patient_id=patient_id, **data)
+        session.add(exercise)
+        exercises.append(exercise)
+    await session.commit()
+    for e in exercises:
+        await session.refresh(e)
+    return exercises
+
+
+async def deactivate_exercises_for_goal(
+    session: AsyncSession, patient_id: str, goal_id: int
+) -> int:
+    result = await session.execute(
+        select(Exercise).where(
+            Exercise.patient_id == patient_id,
+            Exercise.goal_id == goal_id,
+            Exercise.is_active == True,
+        )
+    )
+    exercises = list(result.scalars().all())
+    count = 0
+    for ex in exercises:
+        ex.is_active = False
+        count += 1
+    await session.commit()
+    return count
 
 
 async def log_audit_event(
