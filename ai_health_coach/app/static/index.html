@@ -884,6 +884,51 @@
     .pathway-advancement-card .adv-theme { font-size: 1.1rem; color: var(--gold-hover); font-weight: 600; margin-bottom: 16px; }
     .pathway-advancement-card .btn-primary { margin-top: 12px; }
 
+    /* ─── Multi-Goal Banner ─── */
+    .goal-banner .goal-list { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .goal-banner .goal-item { display: flex; align-items: flex-start; gap: 8px; }
+    .goal-banner .goal-item-text { font-size: 0.9rem; color: var(--text); line-height: 1.4; }
+    .goal-banner .goal-target { font-size: 0.75rem; color: var(--text-muted); }
+    .goal-banner .goal-add-btn {
+      background: none; border: 1px dashed var(--gold); color: var(--gold);
+      border-radius: 6px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer; margin-top: 4px;
+    }
+    .goal-banner .goal-add-btn:hover { background: var(--gold-light); }
+
+    /* ─── Home Goal List ─── */
+    .home-goals-list { display: flex; flex-direction: column; gap: 8px; }
+    .home-goal-item { display: flex; align-items: flex-start; gap: 8px; }
+    .home-goal-bullet {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--gold);
+      margin-top: 6px; flex-shrink: 0;
+    }
+    .home-goal-item-text { font-size: 1rem; line-height: 1.4; color: var(--text); }
+    .home-goal-target { font-size: 0.8rem; color: var(--text-muted); }
+    .home-goal-add-btn {
+      background: none; border: 1px dashed var(--gold); color: var(--gold);
+      border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; width: 100%; margin-top: 4px; text-align: center;
+    }
+    .home-goal-add-btn:hover { background: var(--gold-light); }
+
+    /* ─── Add Goal Inline Form ─── */
+    .add-goal-form { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .add-goal-form input, .add-goal-form textarea {
+      border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+      font-size: 0.9rem; font-family: inherit;
+    }
+    .add-goal-form .add-goal-actions { display: flex; gap: 8px; }
+    .add-goal-form .add-goal-save {
+      background: var(--gold); color: #fff; border: none; border-radius: 8px;
+      padding: 8px 16px; font-weight: 600; cursor: pointer;
+    }
+    .add-goal-form .add-goal-save:disabled { opacity: 0.5; cursor: pointer; }
+    .add-goal-form .add-goal-cancel {
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 16px; cursor: pointer; color: var(--text-muted);
+    }
+
     /* ─── Reduced Motion ─── */
 
     @media (prefers-reduced-motion: reduce) {
@@ -1115,6 +1160,7 @@
         screen: 'welcome',
         patientId: '',
         phase: '',
+        goals: [],
         currentGoal: null,
         messages: [],
         isLoading: false,
@@ -1303,6 +1349,27 @@
           return fetch('/patients/' + encodeURIComponent(patientId) + '/pathway/advance', {
             method: 'POST', headers: api.headers()
           }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        getGoals: function (patientId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/goals', {
+            headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        createGoal: function (patientId, goalText, targetDate) {
+          var body = { goal_text: goalText };
+          if (targetDate) body.target_date = targetDate;
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/goals', {
+            method: 'POST', headers: api.headers(),
+            body: JSON.stringify(body)
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
+        },
+
+        deleteGoal: function (patientId, goalId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/goals/' + goalId, {
+            method: 'DELETE', headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; });
         }
       };
 
@@ -1341,14 +1408,63 @@
         if (goal == null && state.currentGoal) return;
         var previousGoal = state.currentGoal;
         state.currentGoal = goal;
-        if (goal) {
-          goalText.textContent = goal;
+        if (state.goals.length > 0) {
+          // Multi-goal mode: renderGoalBanner handles display
+          renderGoalBanner();
+        } else if (goal) {
+          goalBanner.innerHTML = '<div class="goal-icon">&#9733;</div>' +
+            '<div class="goal-content"><div class="goal-label">Current Goal</div>' +
+            '<div class="goal-text">' + escapeHtml(goal) + '</div></div>';
           goalBanner.classList.remove('pulse');
           goalBanner.classList.add('visible');
           if (goal !== previousGoal) goalBanner.classList.add('pulse');
         } else {
           goalBanner.classList.remove('visible', 'pulse');
         }
+      }
+
+      function updateGoals(goals) {
+        if (!goals || !Array.isArray(goals)) return;
+        state.goals = goals;
+        state.currentGoal = goals.length > 0
+          ? goals.map(function (g) { return g.goal_text; }).join('; ')
+          : null;
+        renderGoalBanner();
+        if (state.activeTab === 'home' && state.adherence) renderHome();
+      }
+
+      function renderGoalBanner() {
+        if (state.goals.length === 0) {
+          if (state.currentGoal) {
+            goalBanner.innerHTML = '<div class="goal-icon">&#9733;</div>' +
+              '<div class="goal-content"><div class="goal-label">Current Goal</div>' +
+              '<div class="goal-text">' + escapeHtml(state.currentGoal) + '</div></div>';
+            goalBanner.classList.add('visible');
+          } else {
+            goalBanner.classList.remove('visible', 'pulse');
+          }
+          return;
+        }
+        var label = state.goals.length > 1 ? 'Your Goals' : 'Current Goal';
+        var html = '<div class="goal-icon">&#9733;</div><div class="goal-content">' +
+          '<div class="goal-label">' + label + '</div><div class="goal-list">';
+        for (var i = 0; i < state.goals.length; i++) {
+          var g = state.goals[i];
+          html += '<div class="goal-item"><div class="goal-item-text">' + escapeHtml(g.goal_text);
+          if (g.target_date) {
+            html += ' <span class="goal-target">by ' + escapeHtml(g.target_date) + '</span>';
+          }
+          html += '</div></div>';
+        }
+        html += '</div>';
+        if (state.goals.length < 3) {
+          html += '<button class="goal-add-btn" onclick="document.dispatchEvent(new CustomEvent(\'addGoalClick\'))">+ Add Goal</button>';
+        }
+        html += '</div>';
+        goalBanner.innerHTML = html;
+        goalBanner.classList.remove('pulse');
+        goalBanner.classList.add('visible');
+        goalBanner.classList.add('pulse');
       }
 
       function addMessage(role, text) {
@@ -1464,6 +1580,7 @@
           .then(function (data) {
             updatePhase(data.current_phase);
             updateGoal(data.current_goal);
+            if (data.goals) updateGoals(data.goals);
             if (data.enrollment_date) {
               state.enrollmentDate = data.enrollment_date.split('T')[0];
             }
@@ -1498,6 +1615,7 @@
             setLoading(false);
             updatePhase(meta.current_phase);
             updateGoal(meta.current_goal);
+            if (meta.goals) updateGoals(meta.goals);
           },
           onToken: function (tok) {
             fullText += tok.text;
@@ -1531,6 +1649,7 @@
             messageInput.focus();
             updatePhase(meta.current_phase);
             updateGoal(meta.current_goal);
+            if (meta.goals) updateGoals(meta.goals);
           },
           onToken: function (tok) {
             streaming.append(tok.text);
@@ -1564,6 +1683,7 @@
             drawerInput.focus();
             updatePhase(meta.current_phase);
             updateGoal(meta.current_goal);
+            if (meta.goals) updateGoals(meta.goals);
           },
           onToken: function (tok) {
             streaming.append(tok.text);
@@ -2475,10 +2595,12 @@
           api.getAdherence(state.patientId),
           api.getOutcomes(state.patientId).catch(function () { return null; }),
           api.getPathway(state.patientId).catch(function () { return null; }),
+          api.getGoals(state.patientId).catch(function () { return []; }),
         ]).then(function (results) {
           state.adherence = results[0];
           state.outcomes = results[1];
           state.pathway = results[2];
+          updateGoals(results[3]);
           renderHome();
         }).catch(function () { showError('Could not load dashboard.'); });
       }
@@ -2493,10 +2615,27 @@
           : '';
         var greetingHtml = '<div class="home-greeting"><h2>' + getTimeGreeting() + ', ' + escapeHtml(state.patientId) + '</h2><div class="home-program">Post-Op Rehabilitation Program</div>' + streakHtml + '</div>';
 
-        // 2. Goal card
+        // 2. Goal card (multi-goal)
         var goalCardHtml;
-        if (state.currentGoal) {
-          goalCardHtml = '<div class="home-card home-goal-card" id="homeGoalCard"><div class="home-card-label">Your Recovery Goal</div><div class="home-goal-text">' + escapeHtml(state.currentGoal) + '</div></div>';
+        if (state.goals.length > 0) {
+          var goalLabel = state.goals.length > 1 ? 'Your Recovery Goals' : 'Your Recovery Goal';
+          var goalsListHtml = '<div class="home-goals-list">';
+          for (var gi = 0; gi < state.goals.length; gi++) {
+            var goal = state.goals[gi];
+            goalsListHtml += '<div class="home-goal-item"><div class="home-goal-bullet"></div><div>' +
+              '<div class="home-goal-item-text">' + escapeHtml(goal.goal_text) + '</div>';
+            if (goal.target_date) {
+              goalsListHtml += '<div class="home-goal-target">Target: ' + escapeHtml(goal.target_date) + '</div>';
+            }
+            goalsListHtml += '</div></div>';
+          }
+          goalsListHtml += '</div>';
+          var addBtnHtml = state.goals.length < 3
+            ? '<button class="home-goal-add-btn" id="homeAddGoalBtn">+ Add Goal</button>'
+            : '';
+          goalCardHtml = '<div class="home-card home-goal-card" id="homeGoalCard"><div class="home-card-label">' + goalLabel + '</div>' + goalsListHtml + addBtnHtml + '<div id="homeAddGoalForm"></div></div>';
+        } else if (state.currentGoal) {
+          goalCardHtml = '<div class="home-card home-goal-card" id="homeGoalCard"><div class="home-card-label">Your Recovery Goal</div><div class="home-goal-text">' + escapeHtml(state.currentGoal) + '</div><button class="home-goal-add-btn" id="homeAddGoalBtn">+ Add Goal</button><div id="homeAddGoalForm"></div></div>';
         } else {
           goalCardHtml = '<div class="home-card home-goal-card" id="homeGoalCard"><div class="home-card-label">Your Recovery Goal</div><div class="home-goal-cta">Tap here to set your recovery goal with your AI Coach <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div></div>';
         }
@@ -2623,7 +2762,18 @@
           '<div class="daily-chart-section"><div class="daily-chart-title">Daily Progress</div><div class="daily-bars">' + barsHtml + '</div></div>';
 
         // Wire up card clicks
-        document.getElementById('homeGoalCard').addEventListener('click', function () { switchTab('chat'); });
+        var goalCard = document.getElementById('homeGoalCard');
+        goalCard.addEventListener('click', function (e) {
+          if (e.target.closest('#homeAddGoalBtn') || e.target.closest('#homeAddGoalForm') || e.target.closest('.home-goal-add-btn')) return;
+          switchTab('chat');
+        });
+        var homeAddGoalBtn = document.getElementById('homeAddGoalBtn');
+        if (homeAddGoalBtn) {
+          homeAddGoalBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            showAddGoalForm('homeAddGoalForm');
+          });
+        }
         document.getElementById('homeStartBtn').addEventListener('click', function (e) { e.stopPropagation(); switchTab('exercises'); });
         document.getElementById('homeActionCard').addEventListener('click', function () { switchTab('exercises'); });
         document.getElementById('homeCoachCard').addEventListener('click', function () { switchTab('chat'); });
@@ -2666,6 +2816,65 @@
           });
         }
       }
+
+      function showAddGoalForm(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML =
+          '<div class="add-goal-form">' +
+          '<input type="text" id="addGoalText" placeholder="Describe your goal (e.g., Walk without crutches)" autocomplete="off">' +
+          '<input type="date" id="addGoalDate" placeholder="Target date (optional)">' +
+          '<div class="add-goal-actions">' +
+          '<button class="add-goal-save" id="addGoalSaveBtn">Save</button>' +
+          '<button class="add-goal-cancel" id="addGoalCancelBtn">Cancel</button>' +
+          '</div></div>';
+        var textInput = document.getElementById('addGoalText');
+        textInput.focus();
+        textInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        document.getElementById('addGoalDate').addEventListener('click', function (e) { e.stopPropagation(); });
+        document.getElementById('addGoalSaveBtn').addEventListener('click', function (e) {
+          e.stopPropagation();
+          submitNewGoal();
+        });
+        document.getElementById('addGoalCancelBtn').addEventListener('click', function (e) {
+          e.stopPropagation();
+          container.innerHTML = '';
+        });
+        textInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); submitNewGoal(); }
+        });
+      }
+
+      function submitNewGoal() {
+        var textInput = document.getElementById('addGoalText');
+        var dateInput = document.getElementById('addGoalDate');
+        var saveBtn = document.getElementById('addGoalSaveBtn');
+        if (!textInput || !textInput.value.trim()) return;
+        var goalText = textInput.value.trim();
+        var targetDate = dateInput && dateInput.value ? dateInput.value : null;
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        api.createGoal(state.patientId, goalText, targetDate)
+          .then(function () {
+            return api.getGoals(state.patientId);
+          })
+          .then(function (goals) {
+            updateGoals(goals);
+          })
+          .catch(function (err) {
+            showError(err.status ? friendlyError(err.status) : 'Could not add goal.');
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+          });
+      }
+
+      // Add Goal from banner (via custom event)
+      document.addEventListener('addGoalClick', function () {
+        switchTab('home');
+        setTimeout(function () {
+          var btn = document.getElementById('homeAddGoalBtn');
+          if (btn) btn.click();
+        }, 100);
+      });
 
       function escapeHtml(text) {
         var div = document.createElement('div');

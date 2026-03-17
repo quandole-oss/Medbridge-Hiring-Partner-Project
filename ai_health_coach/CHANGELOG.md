@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Frontend multi-goal display: all active goals visible simultaneously in chat banner and home view
+- "Add Goal" button in both chat banner and home goal card (hidden when 3 goals reached)
+- Inline add-goal form on home view (goal text + optional target date + save/cancel)
+- Goals array synced from SSE meta events, status responses, and dedicated getGoals API
 - Multi-goal system: patients can have up to 3 concurrent active goals with optional target dates
 - AI-driven exercise generation: new goals trigger LLM to generate 2-4 goal-specific exercises
 - Workload balancing: exercises distributed across 7-day cycle with max 5 per day cap

@@ -29,6 +29,21 @@
 - [x] Demo seed: goal has target_date
 - [x] 8 new tests (57 total passing)
 
+## Frontend Multi-Goal Display + Add Goal
+
+- [x] `state.goals` array tracks multi-goal data from backend
+- [x] `api.getGoals()`, `api.createGoal()`, `api.deleteGoal()` methods
+- [x] `updateGoals()` syncs goals array and updates banner + home view
+- [x] `renderGoalBanner()` shows all goals with star icon, text, target date
+- [x] Goal banner label switches "Current Goal" → "Your Goals" when > 1
+- [x] "Add Goal" button in banner (< 3 goals) navigates to home form
+- [x] Home view goal card shows multiple goals with gold bullet list
+- [x] Inline "Add Goal" form (text + optional date + save/cancel)
+- [x] `api.createGoal()` → refresh goals → re-render on submit
+- [x] SSE meta + status handlers propagate `goals` array
+- [x] `loadHome()` fetches goals in parallel with other data
+- [x] CSS for multi-goal banner, home goal list, and add-goal form
+
 ## Adaptive Patient Memory
 
 - [x] PatientInsight DB model with confidence, category, reinforcement tracking
