@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- Closed-loop adaptive coaching: three integrated features that transform the app from reactive chatbot to proactive coach
+- Auto exercise progression: automatically adjusts exercises when 2+ same-difficulty signals detected in 3 days
+- Exercise progression service (`app/services/exercise_progression.py`): extracted adjustment pipeline, reusable by API and auto-trigger
+- `get_recent_difficulty_signals()` and `get_difficulty_pattern_summary()` repository functions
+- `ExerciseCompleteResponse.auto_adjusted` field notifies frontend when auto-adjustment occurs
+- Auto-adjustments logged to AuditLog with `event_type="auto_exercise_adjustment"`
+- Daily briefing system: personalized coaching message generated once per day, cached
+- `DailyBriefing` model with unique constraint per patient per day
+- `generate_daily_briefing()` service using Haiku for cost-efficient generation (~$0.001/briefing)
+- `GET /patients/{id}/daily-briefing` endpoint with caching
+- `DAILY_BRIEFING_PROMPT` — warm, data-driven, under 60 words
+- Frontend "Today's Coach Message" card on home view with gold accent
+- Weekly review protocol: structured data-driven check-in with MI techniques
+- `weekly_review_node` graph node with motivational interviewing for adherence < 60%
+- `WEEKLY_REVIEW_SYSTEM_PROMPT` + `MI_TECHNIQUES_SECTION` prompts
+- `"weekly_review"` event type in trigger endpoint — invokes graph with `_weekly_review=True`
+- `_weekly_review` transient flag in GraphState, cleared by node, defaulted to False in chat pipeline
+- 20 new tests (74 total passing): exercise progression, daily briefing, weekly review
+
 ### Fixed
 
 - "None" goals in banner + hidden "Add Goal" button: filter sentinel goals ("None"/"null") at API layer (`_build_goal_responses`), `set_goal` tool input validation, frontend `updateGoals()`, and startup DB cleanup

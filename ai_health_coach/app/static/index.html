@@ -675,6 +675,14 @@
     }
     .home-coach-cta svg { width: 14px; height: 14px; }
 
+    /* Daily briefing card */
+    .home-briefing-card { border-left: 4px solid var(--gold); }
+    .home-briefing-card .home-card-label { color: var(--gold-hover); }
+    .home-briefing-text {
+      font-size: 0.95rem; color: var(--text); line-height: 1.5;
+      font-style: italic;
+    }
+
     /* Progress section divider */
     .home-section-divider {
       display: flex; align-items: center; gap: 12px; margin: 4px 0;
@@ -1370,6 +1378,12 @@
           return fetch('/patients/' + encodeURIComponent(patientId) + '/goals/' + goalId, {
             method: 'DELETE', headers: api.headers()
           }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; });
+        },
+
+        getDailyBriefing: function (patientId) {
+          return fetch('/patients/' + encodeURIComponent(patientId) + '/daily-briefing', {
+            headers: api.headers()
+          }).then(function (r) { if (!r.ok) throw { status: r.status, response: r }; return r.json(); });
         }
       };
 
@@ -2600,11 +2614,13 @@
           api.getOutcomes(state.patientId).catch(function () { return null; }),
           api.getPathway(state.patientId).catch(function () { return null; }),
           api.getGoals(state.patientId).catch(function () { return []; }),
+          api.getDailyBriefing(state.patientId).catch(function () { return null; }),
         ]).then(function (results) {
           state.adherence = results[0];
           state.outcomes = results[1];
           state.pathway = results[2];
           updateGoals(results[3]);
+          state.dailyBriefing = results[4];
           renderHome();
         }).catch(function () { showError('Could not load dashboard.'); });
       }
@@ -2656,6 +2672,15 @@
           '<div class="home-progress-label">' + todayDone + '/' + todayDue + ' completed</div>' +
           '<button class="btn-start-session" id="homeStartBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>' + (todayDone > 0 && todayDone < todayDue ? 'Continue Session' : todayDone >= todayDue && todayDue > 0 ? 'All Done! Review' : 'Start Session') + '</button>' +
           '</div>';
+
+        // 4a. Daily briefing card
+        var briefingCardHtml = '';
+        if (state.dailyBriefing && state.dailyBriefing.message) {
+          briefingCardHtml = '<div class="home-card home-briefing-card">' +
+            '<div class="home-card-label">Today\'s Coach Message</div>' +
+            '<div class="home-briefing-text">' + escapeHtml(state.dailyBriefing.message) + '</div>' +
+            '</div>';
+        }
 
         // 4. Coach teaser card
         var teaser = getCoachTeaser(state.phase, a.days_in_program);
@@ -2757,6 +2782,7 @@
           pathwayHtml +
           actionCardHtml +
           proHtml +
+          briefingCardHtml +
           coachCardHtml +
           proTrendHtml +
           '<div class="home-section-divider"><span>Progress</span></div>' +

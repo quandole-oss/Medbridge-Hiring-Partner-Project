@@ -19,6 +19,7 @@ from app.api.schemas import (
     ChatRequest,
     ChatResponse,
     CreateGoalRequest,
+    DailyBriefingResponse,
     EducationContentResponse,
     EventTriggerRequest,
     EventTriggerResponse,
@@ -41,7 +42,6 @@ from app.db.repository import (
     create_goal,
     create_outcome_report,
     deactivate_goal,
-    find_replacement_target,
     get_active_goal,
     get_active_goals,
     get_adherence_stats,
@@ -58,7 +58,6 @@ from app.db.repository import (
     log_audit_event,
     mark_education_viewed,
     mark_exercise_complete,
-    replace_exercise,
     unmark_exercise_complete,
     update_goal,
     update_patient_last_message,
@@ -68,7 +67,7 @@ from app.db.seed import seed_exercises
 from app.db.session import get_db_session
 from app.graph.parent import compiled_graph
 from app.graph.state import Phase
-from app.services.llm import FALLBACK_MESSAGE, get_exercise_adjustment
+from app.services.llm import FALLBACK_MESSAGE
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +186,7 @@ async def _run_chat_pipeline(
                     if patient.enrollment_date
                     else ""
                 ),
+                "_weekly_review": False,
             },
             config={"configurable": {"thread_id": request.patient_id}},
         )
@@ -319,6 +319,63 @@ async def trigger_event(
     _api_key: str = Depends(verify_api_key),
     session: AsyncSession = Depends(get_db_session),
 ):
+    if request.event_type == "weekly_review":
+        patient = await get_patient(session, request.patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+
+        await verify_consent(request.patient_id, session)
+
+        goals = await get_active_goals(session, request.patient_id)
+        goal_summary = _format_goal_summary(goals)
+
+        try:
+            result = await compiled_graph.ainvoke(
+                {
+                    "patient_id": request.patient_id,
+                    "current_phase": patient.current_phase,
+                    "messages": [],
+                    "unanswered_count": patient.unanswered_count,
+                    "current_goal": goal_summary,
+                    "tone_instruction": "general",
+                    "safety_retry_count": 0,
+                    "enrollment_date": (
+                        patient.enrollment_date.isoformat()
+                        if patient.enrollment_date
+                        else ""
+                    ),
+                    "_weekly_review": True,
+                },
+                config={"configurable": {"thread_id": request.patient_id + "-weekly"}},
+            )
+            # Extract AI response
+            from langchain_core.messages import AIMessage
+            ai_response = "Weekly review completed."
+            for msg in reversed(result.get("messages", [])):
+                if isinstance(msg, AIMessage):
+                    content = msg.content
+                    if isinstance(content, str):
+                        ai_response = content
+                    elif isinstance(content, list):
+                        text_parts = [b.get("text", "") for b in content
+                                      if isinstance(b, dict) and b.get("type") == "text"]
+                        if text_parts:
+                            ai_response = " ".join(text_parts)
+                    break
+        except Exception:
+            logger.exception("Weekly review failed for %s", request.patient_id)
+            ai_response = "Weekly review could not be generated. Please try again."
+
+        await log_audit_event(
+            session, request.patient_id, "weekly_review", {}
+        )
+
+        return EventTriggerResponse(
+            patient_id=request.patient_id,
+            new_phase=patient.current_phase,
+            message=ai_response,
+        )
+
     if request.event_type == "consent_granted":
         patient = await get_patient(session, request.patient_id)
         if patient and patient.consent_status:
@@ -674,6 +731,22 @@ async def toggle_exercise_complete(
         feedback=request.feedback,
     )
 
+    # Auto-progression check
+    auto_adjusted = None
+    if request.difficulty in ("too_easy", "too_hard"):
+        from app.services.exercise_progression import check_and_auto_adjust
+
+        auto_result = await check_and_auto_adjust(
+            session, patient_id, request.exercise_id, request.difficulty
+        )
+        if auto_result:
+            auto_adjusted = {
+                "new_exercise_name": auto_result["new_exercise"].name,
+                "new_exercise_id": auto_result["new_exercise"].exercise_id,
+                "reasoning": auto_result["reasoning"],
+                "target_day": auto_result["target_day"],
+            }
+
     return ExerciseCompleteResponse(
         patient_id=patient_id,
         exercise_id=request.exercise_id,
@@ -682,6 +755,7 @@ async def toggle_exercise_complete(
         sets_completed=completion.sets_completed,
         set_statuses=completion.set_statuses,
         total_sets=total_sets,
+        auto_adjusted=auto_adjusted,
     )
 
 
@@ -726,79 +800,18 @@ async def adjust_exercise(
             status_code=422, detail="difficulty must be 'too_easy' or 'too_hard'"
         )
 
-    # Calculate current day from enrollment date
-    current_day = exercise.day_number
-    if patient.enrollment_date:
-        now = datetime.datetime.now(datetime.timezone.utc)
-        enrollment = patient.enrollment_date
-        if enrollment.tzinfo is None:
-            enrollment = enrollment.replace(tzinfo=datetime.timezone.utc)
-        current_day = min(max((now - enrollment).days + 1, 1), 7)
+    from app.services.exercise_progression import perform_exercise_adjustment
 
-    # Fetch completion data for set_statuses context
-    today = datetime.date.today()
-    completions = await get_exercise_completions(session, patient_id, today)
-    comp_map = {c.exercise_id: c for c in completions}
-    source_comp = comp_map.get(exercise_id)
-    source_set_statuses = source_comp.set_statuses if source_comp else None
-
-    adjustment = await get_exercise_adjustment(
-        exercise=exercise,
-        difficulty=request.difficulty,
-        feedback=request.feedback,
-        set_statuses=source_set_statuses,
+    result = await perform_exercise_adjustment(
+        session, patient_id, exercise_id, request.difficulty, request.feedback
     )
+    if not result:
+        raise HTTPException(status_code=404, detail="Exercise not found")
 
-    # Find replacement target on a different day (source stays unchanged)
-    target = await find_replacement_target(
-        session, patient_id, exercise, current_day
-    )
-
-    if target:
-        target_exercise_id = target.exercise_id
-        target_day = target.day_number
-        target_exercise_name = target.name
-    else:
-        # Tier 3: create on next day
-        target_day = (current_day % 7) + 1
-        target_exercise_id = None
-        target_exercise_name = None
-
-    if target_exercise_id:
-        new_exercise = await replace_exercise(
-            session,
-            patient_id=patient_id,
-            old_exercise_id=target_exercise_id,
-            name=adjustment["name"],
-            description=adjustment["description"],
-            body_part=adjustment["body_part"],
-            sets=adjustment["sets"],
-            reps=adjustment["reps"],
-            hold_seconds=adjustment.get("hold_seconds"),
-        )
-    else:
-        # No existing target; create a new exercise on the target day
-        from app.db.models import Exercise as ExerciseModel
-
-        new_exercise = ExerciseModel(
-            patient_id=patient_id,
-            name=adjustment["name"],
-            description=adjustment["description"],
-            body_part=adjustment["body_part"],
-            sets=adjustment["sets"],
-            reps=adjustment["reps"],
-            hold_seconds=adjustment.get("hold_seconds"),
-            day_number=target_day,
-            sort_order=99,
-            is_active=True,
-        )
-        session.add(new_exercise)
-        await session.commit()
-        await session.refresh(new_exercise)
-
-    day_label = f"Day {target_day}"
-    if target_day <= current_day:
-        day_label += " (next cycle)"
+    exercise = result["exercise"]
+    new_exercise = result["new_exercise"]
+    source_comp = result["source_comp"]
+    source_set_statuses = result["source_set_statuses"]
 
     original_response = ExerciseResponse(
         exercise_id=exercise.exercise_id,
@@ -828,32 +841,40 @@ async def adjust_exercise(
         is_completed=False,
     )
 
-    replaced_name = target_exercise_name or f"new slot on {day_label}"
-    reasoning_with_day = (
-        f"{day_label}: {replaced_name} → {new_exercise.name}. "
-        f"{adjustment['reasoning']}"
-    )
-
-    await log_audit_event(
-        session,
-        patient_id,
-        "exercise_adjusted",
-        {
-            "source_exercise_id": exercise_id,
-            "target_exercise_id": target.exercise_id if target else None,
-            "new_exercise_id": new_exercise.exercise_id,
-            "target_day": target_day,
-            "difficulty": request.difficulty,
-            "reasoning": adjustment["reasoning"],
-        },
-    )
-
     return AdjustExerciseResponse(
         original_exercise=original_response,
         new_exercise=new_response,
-        reasoning=reasoning_with_day,
-        target_day=target_day,
-        target_exercise_name=target_exercise_name,
+        reasoning=result["reasoning"],
+        target_day=result["target_day"],
+        target_exercise_name=result["target_exercise_name"],
+    )
+
+
+# ── Daily Briefing endpoint ───────────────────────────────────────────────────
+
+
+@router.get(
+    "/patients/{patient_id}/daily-briefing",
+    response_model=DailyBriefingResponse,
+)
+async def get_daily_briefing_endpoint(
+    patient_id: str,
+    _api_key: str = Depends(verify_api_key),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    from app.services.daily_briefing import generate_daily_briefing
+
+    result = await generate_daily_briefing(session, patient_id)
+
+    return DailyBriefingResponse(
+        patient_id=patient_id,
+        date=datetime.date.today().isoformat(),
+        message=result["message"],
+        is_cached=result["is_cached"],
     )
 
 

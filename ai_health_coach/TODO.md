@@ -62,6 +62,39 @@
 - [x] Frontend: filter goals array in `updateGoals()` before storing in state
 - [x] Startup cleanup: `_cleanup_invalid_goals()` deactivates "None"/"null" goals on every boot
 
+## Closed-Loop Adaptive Coaching
+
+### Auto Exercise Progression
+- [x] Extract `perform_exercise_adjustment()` service from `adjust_exercise` endpoint
+- [x] Add `get_recent_difficulty_signals()` to repository (filter by exercise, difficulty, date range)
+- [x] Add `get_difficulty_pattern_summary()` to repository (aggregate feedback counts)
+- [x] Add `check_and_auto_adjust()` — triggers adjustment on 2+ same-signal completions in 3 days
+- [x] Wire auto-adjust into `toggle_exercise_complete` endpoint
+- [x] Auto-adjustments logged to AuditLog with `event_type="auto_exercise_adjustment"`
+- [x] `ExerciseCompleteResponse` includes optional `auto_adjusted` field
+- [x] 7 new tests (difficulty signals, threshold logic, API integration)
+
+### Daily Briefing
+- [x] `DailyBriefing` model with unique constraint per patient per day
+- [x] Repository: `get_daily_briefing()`, `save_daily_briefing()`
+- [x] `generate_daily_briefing()` service — Haiku-powered, one-per-day cached
+- [x] `DAILY_BRIEFING_PROMPT` in prompts.py (warm, data-driven, <60 words)
+- [x] `DailyBriefingResponse` schema
+- [x] `GET /patients/{id}/daily-briefing` endpoint
+- [x] Frontend: `api.getDailyBriefing()` method
+- [x] Frontend: briefing fetched in `loadHome()` parallel Promise.all
+- [x] Frontend: "Today's Coach Message" card with gold accent
+- [x] 5 new tests (save/get, endpoint 404, cached, fresh generation)
+
+### Weekly Review
+- [x] `_weekly_review` flag in `GraphState` (transient, follows `_safety_verdict` pattern)
+- [x] `WEEKLY_REVIEW_SYSTEM_PROMPT` + `MI_TECHNIQUES_SECTION` in prompts.py
+- [x] `weekly_review_node` — structured review with MI for low adherence
+- [x] Graph wiring: `route_by_phase` checks `_weekly_review` first, routes through safety
+- [x] `"weekly_review"` event type in `trigger_event` endpoint
+- [x] `_weekly_review=False` passed in `_run_chat_pipeline` to prevent stale flag
+- [x] 8 new tests (routing with flag, node output, MI inclusion, error handling)
+
 ## Adaptive Patient Memory
 
 - [x] PatientInsight DB model with confidence, category, reinforcement tracking

@@ -222,6 +222,25 @@ class PatientInsight(Base):
     patient: Mapped["Patient"] = relationship(back_populates="insights")
 
 
+class DailyBriefing(Base):
+    __tablename__ = "daily_briefings"
+    __table_args__ = (
+        UniqueConstraint("patient_id", "briefing_date", name="uq_briefing_per_day"),
+    )
+
+    briefing_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    patient_id: Mapped[str] = mapped_column(
+        String, ForeignKey("patients.patient_id")
+    )
+    briefing_date: Mapped[datetime.date] = mapped_column(Date)
+    message: Mapped[str] = mapped_column(String)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+
 class EducationContent(Base):
     __tablename__ = "education_content"
 

@@ -118,6 +118,7 @@ class ExerciseCompleteResponse(BaseModel):
     sets_completed: int = 0
     set_statuses: Optional[List[Optional[str]]] = None
     total_sets: int = 0
+    auto_adjusted: Optional[dict] = None
 
 
 class AdjustExerciseRequest(BaseModel):
@@ -131,6 +132,13 @@ class AdjustExerciseResponse(BaseModel):
     reasoning: str
     target_day: Optional[int] = None
     target_exercise_name: Optional[str] = None
+
+
+class DailyBriefingResponse(BaseModel):
+    patient_id: str
+    date: str
+    message: str
+    is_cached: bool = False
 
 
 class DailyCompletion(BaseModel):

@@ -23,3 +23,4 @@ class GraphState(TypedDict):
     safety_retry_count: int
     enrollment_date: str
     _safety_verdict: Optional[str]
+    _weekly_review: Optional[bool]

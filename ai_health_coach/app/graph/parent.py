@@ -8,6 +8,7 @@ from app.graph.nodes.active import _clean_tool_orphans, active_coaching_node
 from app.graph.nodes.memory import extract_insights_node
 from app.graph.nodes.onboarding import check_goal_extraction, onboarding_node
 from app.graph.nodes.re_engaging import re_engaging_node
+from app.graph.nodes.weekly_review import weekly_review_node
 from app.graph.nodes.safety import (
     crisis_handler_node,
     route_after_safety,
@@ -29,6 +30,10 @@ PHASE_ROUTES = {
 
 def route_by_phase(state: GraphState) -> str:
     """Pure dictionary lookup router. No LLM calls."""
+    # Weekly review flag takes priority
+    if state.get("_weekly_review"):
+        return "weekly_review_node"
+
     phase = state["current_phase"]
     route = PHASE_ROUTES.get(phase)
     if route is None:
@@ -94,6 +99,9 @@ def build_graph() -> StateGraph:
     graph.add_node("re_engaging_node", re_engaging_node)
     graph.add_node("dormant_handler", dormant_handler)
 
+    # Weekly review node
+    graph.add_node("weekly_review_node", weekly_review_node)
+
     # Safety pipeline nodes
     graph.add_node("safety_check", safety_check_node)
     graph.add_node("retry_node", retry_node)
@@ -113,6 +121,7 @@ def build_graph() -> StateGraph:
     graph.add_edge("onboarding_node", "safety_check")
     graph.add_edge("active_coaching_node", "safety_check")
     graph.add_edge("re_engaging_node", "safety_check")
+    graph.add_edge("weekly_review_node", "safety_check")
     graph.add_edge("dormant_handler", END)
 
     # Safety check -> conditional routing

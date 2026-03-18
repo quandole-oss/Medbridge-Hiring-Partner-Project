@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
     AuditLog,
+    DailyBriefing,
     EducationContent,
     EducationView,
     Exercise,
@@ -773,3 +774,83 @@ async def decay_unreinforced_insights(
             insight.is_active = False
 
     await session.commit()
+
+
+# ── Exercise Difficulty Signals ───────────────────────────────────────────────
+
+
+async def get_recent_difficulty_signals(
+    session: AsyncSession,
+    patient_id: str,
+    exercise_id: int,
+    days: int = 3,
+    signal: str = "too_hard",
+) -> List[ExerciseCompletion]:
+    """Completions with a specific difficulty for an exercise in last N days."""
+    cutoff = datetime.date.today() - datetime.timedelta(days=days)
+    result = await session.execute(
+        select(ExerciseCompletion).where(
+            ExerciseCompletion.patient_id == patient_id,
+            ExerciseCompletion.exercise_id == exercise_id,
+            ExerciseCompletion.difficulty == signal,
+            ExerciseCompletion.completed_date >= cutoff,
+        ).order_by(ExerciseCompletion.completed_date.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_difficulty_pattern_summary(
+    session: AsyncSession,
+    patient_id: str,
+    days: int = 7,
+) -> dict:
+    """Aggregate difficulty feedback: {"too_hard": 3, "too_easy": 1, "just_right": 8, "no_feedback": 4}"""
+    cutoff = datetime.date.today() - datetime.timedelta(days=days)
+    result = await session.execute(
+        select(ExerciseCompletion).where(
+            ExerciseCompletion.patient_id == patient_id,
+            ExerciseCompletion.completed_date >= cutoff,
+        )
+    )
+    completions = list(result.scalars().all())
+    summary = {"too_hard": 0, "too_easy": 0, "just_right": 0, "no_feedback": 0}
+    for c in completions:
+        if c.difficulty in summary:
+            summary[c.difficulty] += 1
+        else:
+            summary["no_feedback"] += 1
+    return summary
+
+
+# ── Daily Briefing ────────────────────────────────────────────────────────────
+
+
+async def get_daily_briefing(
+    session: AsyncSession,
+    patient_id: str,
+    date: datetime.date,
+) -> Optional[DailyBriefing]:
+    result = await session.execute(
+        select(DailyBriefing).where(
+            DailyBriefing.patient_id == patient_id,
+            DailyBriefing.briefing_date == date,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def save_daily_briefing(
+    session: AsyncSession,
+    patient_id: str,
+    date: datetime.date,
+    message: str,
+) -> DailyBriefing:
+    briefing = DailyBriefing(
+        patient_id=patient_id,
+        briefing_date=date,
+        message=message,
+    )
+    session.add(briefing)
+    await session.commit()
+    await session.refresh(briefing)
+    return briefing
