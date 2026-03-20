@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Overall completion rate inflated when exercises are deactivated by progression system: `total_completed` and `total_due` now derived from the daily completions loop (same source as daily bars) instead of separate SQL queries that counted all completions regardless of date/active status
 - Completion ring on Home tab now shows today's progress instead of cumulative rate; cumulative rate moved to "Overall" stat in the stats grid
 - "None" goals in banner + hidden "Add Goal" button: filter sentinel goals ("None"/"null") at API layer (`_build_goal_responses`), `set_goal` tool input validation, frontend `updateGoals()`, and startup DB cleanup
 - "None" goal display: guard against LLM returning literal `"None"` string in goal extraction, API response sanitization, and frontend display

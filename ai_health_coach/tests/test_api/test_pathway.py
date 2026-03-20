@@ -95,12 +95,22 @@ async def test_advancement_success(client, db_session, api_headers):
         select(Exercise).where(Exercise.patient_id == "p1", Exercise.week_number == 1)
     )
     exercises = list(result.scalars().all())
-    today = datetime.date.today()
+
+    # Get the patient to determine day 1's date (exercises are day_number=1)
+    patient = await db_session.execute(
+        select(Patient).where(Patient.patient_id == "p1")
+    )
+    patient = patient.scalar_one()
+    enrollment_date = patient.enrollment_date
+    if hasattr(enrollment_date, 'date'):
+        enrollment_date = enrollment_date.date()
+    day1_date = enrollment_date  # day_number=1 corresponds to enrollment date
+
     for ex in exercises:
         comp = ExerciseCompletion(
             patient_id="p1",
             exercise_id=ex.exercise_id,
-            completed_date=today,
+            completed_date=day1_date,
             sets_completed=ex.sets,
             set_statuses=["complete"] * ex.sets,
         )
@@ -155,6 +165,11 @@ async def test_advancement_blocked_by_pain(client, db_session, api_headers):
     await db_session.flush()
 
     # Complete all week 2 exercises (meet adherence threshold)
+    # Exercises are day_number=1, so use enrollment date (day 1's date)
+    enrollment_date = patient.enrollment_date
+    if hasattr(enrollment_date, 'date'):
+        enrollment_date = enrollment_date.date()
+
     result2 = await db_session.execute(
         select(Exercise).where(Exercise.patient_id == "p1", Exercise.week_number == 2)
     )
@@ -162,7 +177,7 @@ async def test_advancement_blocked_by_pain(client, db_session, api_headers):
         comp = ExerciseCompletion(
             patient_id="p1",
             exercise_id=ex.exercise_id,
-            completed_date=datetime.date.today(),
+            completed_date=enrollment_date,
             sets_completed=ex.sets,
             set_statuses=["complete"] * ex.sets,
         )

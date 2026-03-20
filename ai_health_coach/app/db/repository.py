@@ -332,34 +332,28 @@ async def get_adherence_stats(
     days_in_program = max((now - enrollment).days + 1, 1)
     current_day = min(days_in_program, 7)
 
-    # Total exercises due (days completed so far)
-    due_stmt = select(func.count(Exercise.exercise_id)).where(
-        Exercise.patient_id == patient_id,
-        Exercise.is_active == True,
-        Exercise.day_number <= current_day,
-    )
-    if week_number is not None:
-        due_stmt = due_stmt.where(Exercise.week_number == week_number)
-    due_result = await session.execute(due_stmt)
-    total_due = due_result.scalar() or 0
-
-    # Total completed
-    comp_stmt = select(func.count(ExerciseCompletion.completion_id)).where(
-        ExerciseCompletion.patient_id == patient_id,
-    )
-    if week_number is not None:
-        # Join to Exercise to filter by week
-        comp_stmt = (
-            select(func.count(ExerciseCompletion.completion_id))
-            .join(Exercise, ExerciseCompletion.exercise_id == Exercise.exercise_id)
-            .where(
-                ExerciseCompletion.patient_id == patient_id,
-                Exercise.week_number == week_number,
+    # Daily completions for chart (also used to derive overall stats)
+    daily_completions = []
+    for d in range(1, 8):
+        day_exs = await get_patient_exercises(session, patient_id, day=d, week_number=week_number)
+        check_date = enrollment_date_only + datetime.timedelta(days=d - 1)
+        if d <= current_day and day_exs:
+            day_comps = await get_exercise_completions(
+                session, patient_id, check_date
             )
-        )
-    completed_result = await session.execute(comp_stmt)
-    total_completed = completed_result.scalar() or 0
+            comp_ids = {c.exercise_id for c in day_comps}
+            done = sum(1 for e in day_exs if e.exercise_id in comp_ids)
+            daily_completions.append(
+                {"day": d, "completed": done, "total": len(day_exs)}
+            )
+        else:
+            daily_completions.append(
+                {"day": d, "completed": 0, "total": len(day_exs)}
+            )
 
+    # Overall stats derived from daily completions (ensures consistency with daily bars)
+    total_completed = sum(dc["completed"] for dc in daily_completions)
+    total_due = sum(dc["total"] for dc in daily_completions)
     completion_rate = (total_completed / total_due * 100) if total_due > 0 else 0.0
 
     # Today's stats
@@ -396,25 +390,6 @@ async def get_adherence_stats(
         "5": days_in_program >= 5,
         "7": days_in_program >= 7,
     }
-
-    # Daily completions for chart
-    daily_completions = []
-    for d in range(1, 8):
-        day_exs = await get_patient_exercises(session, patient_id, day=d)
-        check_date = enrollment_date_only + datetime.timedelta(days=d - 1)
-        if d <= current_day and day_exs:
-            day_comps = await get_exercise_completions(
-                session, patient_id, check_date
-            )
-            comp_ids = {c.exercise_id for c in day_comps}
-            done = sum(1 for e in day_exs if e.exercise_id in comp_ids)
-            daily_completions.append(
-                {"day": d, "completed": done, "total": len(day_exs)}
-            )
-        else:
-            daily_completions.append(
-                {"day": d, "completed": 0, "total": len(day_exs)}
-            )
 
     return {
         "days_in_program": days_in_program,
