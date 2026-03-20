@@ -1,5 +1,15 @@
 # AI Health Coach — TODO
 
+## Gamification / Badge & Achievement System
+
+- [x] `app/services/badges.py` — badge catalog + pure `compute_badges()` function
+- [x] `app/db/repository.py` — `get_completed_goal_count()` for goal-based badges
+- [x] `app/api/schemas.py` — `BadgeItem` model, extend `AdherenceResponse` with `badges` + `completed_goal_count`
+- [x] `app/api/routes.py` — wire badges into adherence endpoint
+- [x] `app/static/index.html` — achievements CSS (scroll, glow, confetti, toast), badge rendering, celebration JS
+- [x] `app/services/daily_briefing.py` — add earned badge names to LLM context
+- [x] 15 tests: pure function unit tests, DB integration, endpoint integration (110 total)
+
 ## Streaming Chat Responses
 
 - [x] Extract `_run_chat_pipeline()` shared helper from `chat()` endpoint

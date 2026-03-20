@@ -148,6 +148,15 @@ class DailyCompletion(BaseModel):
     total: int
 
 
+class BadgeItem(BaseModel):
+    id: str
+    name: str
+    emoji: str
+    description: str
+    earned: bool
+    earned_today: bool
+
+
 class AdherenceResponse(BaseModel):
     patient_id: str
     days_in_program: int
@@ -160,6 +169,8 @@ class AdherenceResponse(BaseModel):
     exercises_completed_today: int
     exercises_due_today: int
     daily_completions: List[DailyCompletion]
+    badges: List[BadgeItem] = []
+    completed_goal_count: int = 0
 
 
 # ── PRO (Patient-Reported Outcomes) ──────────────────────────────────────────

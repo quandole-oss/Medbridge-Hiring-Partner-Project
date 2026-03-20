@@ -731,28 +731,99 @@
     }
     .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 
-    .milestones-section {
+    /* Achievements / Badges */
+    .achievements-section {
       background: #fff; border-radius: 12px; padding: 20px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
-    .milestones-title {
+    .achievements-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    .achievements-title {
       font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 16px;
+      letter-spacing: 0.05em; color: var(--text-muted);
     }
-    .milestones-row { display: flex; justify-content: center; gap: 24px; }
-    .milestone {
+    .achievements-count {
+      font-size: 0.75rem; font-weight: 600; color: var(--gold);
+      background: rgba(243,156,18,0.12); border-radius: 12px; padding: 2px 10px;
+    }
+    .achievements-scroll {
+      display: flex; gap: 16px; overflow-x: auto; padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .achievements-scroll::-webkit-scrollbar { display: none; }
+    .badge-item {
       display: flex; flex-direction: column; align-items: center; gap: 6px;
+      min-width: 72px; flex-shrink: 0;
     }
-    .milestone-circle {
-      width: 48px; height: 48px; border-radius: 50%; border: 3px solid var(--border);
+    .badge-circle {
+      width: 56px; height: 56px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 0.9rem; color: var(--text-muted);
+      font-size: 1.5rem; position: relative;
+      border: 3px solid var(--border); background: var(--bg);
       transition: all 0.3s ease;
     }
-    .milestone.reached .milestone-circle {
-      background: var(--gold); border-color: var(--gold); color: #fff;
+    .badge-item.earned .badge-circle {
+      border-color: var(--gold);
+      background: linear-gradient(135deg, #FFF8E1, #FFF3CD);
+      box-shadow: 0 0 12px rgba(243,156,18,0.3);
     }
-    .milestone-label { font-size: 0.7rem; color: var(--text-muted); }
+    .badge-item.locked .badge-circle {
+      filter: grayscale(1); opacity: 0.45;
+    }
+    .badge-lock {
+      position: absolute; bottom: -2px; right: -2px;
+      font-size: 0.65rem; background: var(--border); border-radius: 50%;
+      width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+    }
+    .badge-name {
+      font-size: 0.65rem; color: var(--text-muted); text-align: center;
+      font-weight: 600; max-width: 72px; line-height: 1.2;
+    }
+    .badge-item.earned .badge-name { color: var(--navy); }
+
+    /* Badge unlock animation */
+    @keyframes badgeUnlock {
+      0% { transform: scale(1); }
+      30% { transform: scale(1.25); }
+      50% { transform: scale(0.95); }
+      70% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .badge-item.just-earned .badge-circle {
+      animation: badgeUnlock 0.6s ease-out;
+    }
+
+    /* Badge toast */
+    .badge-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px);
+      background: linear-gradient(135deg, #F9A825, #F39C12);
+      color: #fff; padding: 12px 24px; border-radius: 16px;
+      font-weight: 700; font-size: 0.9rem;
+      box-shadow: 0 4px 20px rgba(243,156,18,0.4);
+      z-index: 9999; opacity: 0;
+      transition: transform 0.4s cubic-bezier(.34,1.56,.64,1), opacity 0.3s ease;
+      white-space: nowrap; pointer-events: none;
+    }
+    .badge-toast.show {
+      transform: translateX(-50%) translateY(0); opacity: 1;
+    }
+
+    /* CSS Confetti */
+    .confetti-container {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 9998; overflow: hidden;
+    }
+    .confetti-piece {
+      position: absolute; width: 8px; height: 8px; border-radius: 2px;
+      top: 40%; left: 50%;
+      animation: confettiBurst 1.2s ease-out forwards;
+    }
+    @keyframes confettiBurst {
+      0% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+      100% { opacity: 0; }
+    }
 
     .daily-chart-section {
       background: #fff; border-radius: 12px; padding: 20px;
@@ -2660,6 +2731,7 @@
           updateGoals(results[3]);
           state.dailyBriefing = results[4];
           renderHome();
+          checkNewBadges(state.adherence.badges || []);
         }).catch(function () { showError('Could not load dashboard.'); });
       }
 
@@ -2740,12 +2812,17 @@
           ? Math.round(a.exercises_completed_today / a.exercises_due_today * 100) : 0;
         var offset = circumference - (todayRate / 100) * circumference;
 
-        var milestoneDays = [2, 5, 7];
-        var milestonesHtml = '';
-        for (var m = 0; m < milestoneDays.length; m++) {
-          var d = milestoneDays[m];
-          var reached = a.milestones[String(d)] ? ' reached' : '';
-          milestonesHtml += '<div class="milestone' + reached + '"><div class="milestone-circle">' + d + '</div><div class="milestone-label">Day ' + d + '</div></div>';
+        // Achievements / badges
+        var badgesList = a.badges || [];
+        var earnedCount = 0;
+        var achievementsHtml = '';
+        for (var bi = 0; bi < badgesList.length; bi++) {
+          var badge = badgesList[bi];
+          if (badge.earned) earnedCount++;
+          var badgeCls = badge.earned ? 'badge-item earned' : 'badge-item locked';
+          achievementsHtml += '<div class="' + badgeCls + '" data-badge-id="' + badge.id + '" title="' + escapeHtml(badge.description) + '">' +
+            '<div class="badge-circle">' + badge.emoji + (badge.earned ? '' : '<span class="badge-lock">\uD83D\uDD12</span>') + '</div>' +
+            '<div class="badge-name">' + escapeHtml(badge.name) + '</div></div>';
         }
 
         var barsHtml = '';
@@ -2828,7 +2905,7 @@
           '<div class="home-section-divider"><span>Progress</span></div>' +
           '<div class="adherence-ring-container"><div class="adherence-ring"><svg viewBox="0 0 140 140"><circle class="ring-bg" cx="70" cy="70" r="58"/><circle class="ring-fg" cx="70" cy="70" r="58" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><div class="ring-label"><div class="ring-pct">' + todayRate + '%</div><div class="ring-sub">Today</div></div></div></div>' +
           '<div class="stats-grid"><div class="stat-card"><div class="stat-value">' + a.streak + '</div><div class="stat-label">Day Streak</div></div><div class="stat-card"><div class="stat-value">' + a.total_completed + '</div><div class="stat-label">Completed</div></div><div class="stat-card"><div class="stat-value">' + Math.round(a.completion_rate) + '%</div><div class="stat-label">Overall</div></div><div class="stat-card"><div class="stat-value">' + a.current_day + '</div><div class="stat-label">Program Day</div></div></div>' +
-          '<div class="milestones-section"><div class="milestones-title">Milestones</div><div class="milestones-row">' + milestonesHtml + '</div></div>' +
+          '<div class="achievements-section"><div class="achievements-header"><span class="achievements-title">Achievements</span><span class="achievements-count">' + earnedCount + '/' + badgesList.length + '</span></div><div class="achievements-scroll">' + achievementsHtml + '</div></div>' +
           '<div class="daily-chart-section"><div class="daily-chart-title">Daily Progress</div><div class="daily-bars">' + barsHtml + '</div></div>';
 
         // Wire up card clicks
@@ -2885,6 +2962,76 @@
             });
           });
         }
+      }
+
+      // ── Badge Celebration System ──────────────────────────────────────────
+      function checkNewBadges(badges) {
+        var shownKey = 'badgesShown_' + state.patientId;
+        var shown = {};
+        try { shown = JSON.parse(sessionStorage.getItem(shownKey) || '{}'); } catch (e) { shown = {}; }
+        var toasts = [];
+        for (var i = 0; i < badges.length; i++) {
+          var b = badges[i];
+          if (b.earned && b.earned_today && !shown[b.id]) {
+            toasts.push(b);
+            shown[b.id] = true;
+          }
+        }
+        sessionStorage.setItem(shownKey, JSON.stringify(shown));
+        if (toasts.length > 0) showBadgeCelebrations(toasts);
+      }
+
+      function showBadgeCelebrations(badges) {
+        for (var i = 0; i < badges.length; i++) {
+          (function (badge, delay) {
+            setTimeout(function () { showBadgeCelebration(badge); }, delay);
+          })(badges[i], i * 2200);
+        }
+      }
+
+      function showBadgeCelebration(badge) {
+        // Pulse the badge circle in the scroll
+        var el = document.querySelector('[data-badge-id="' + badge.id + '"]');
+        if (el) el.classList.add('just-earned');
+
+        // Confetti burst
+        var container = document.createElement('div');
+        container.className = 'confetti-container';
+        var colors = ['#F39C12', '#E74C3C', '#2ECC71', '#3498DB', '#9B59B6', '#E91E63', '#FF5722', '#00BCD4'];
+        for (var i = 0; i < 24; i++) {
+          var piece = document.createElement('div');
+          piece.className = 'confetti-piece';
+          piece.style.background = colors[i % colors.length];
+          var angle = (i / 24) * 360;
+          var dist = 80 + Math.random() * 120;
+          var dx = Math.cos(angle * Math.PI / 180) * dist;
+          var dy = Math.sin(angle * Math.PI / 180) * dist - 60;
+          var rot = Math.random() * 720;
+          piece.style.animationDuration = (0.8 + Math.random() * 0.6) + 's';
+          piece.style.setProperty('--dx', dx + 'px');
+          piece.style.setProperty('--dy', dy + 'px');
+          piece.style.setProperty('--rot', rot + 'deg');
+          // Use inline transform for unique end positions
+          piece.style.animation = 'none';
+          piece.offsetHeight; // reflow
+          piece.style.animation = '';
+          piece.animate([
+            { transform: 'translate(0,0) rotate(0deg) scale(1)', opacity: 1 },
+            { transform: 'translate(' + dx + 'px,' + dy + 'px) rotate(' + rot + 'deg) scale(0.3)', opacity: 0 }
+          ], { duration: 800 + Math.random() * 400, easing: 'ease-out', fill: 'forwards' });
+          container.appendChild(piece);
+        }
+        document.body.appendChild(container);
+        setTimeout(function () { container.remove(); }, 1800);
+
+        // Toast
+        var toast = document.createElement('div');
+        toast.className = 'badge-toast';
+        toast.textContent = badge.emoji + ' Badge Earned! ' + badge.name;
+        document.body.appendChild(toast);
+        setTimeout(function () { toast.classList.add('show'); }, 50);
+        setTimeout(function () { toast.classList.remove('show'); }, 2000);
+        setTimeout(function () { toast.remove(); }, 2400);
       }
 
       function showAddGoalForm(containerId) {

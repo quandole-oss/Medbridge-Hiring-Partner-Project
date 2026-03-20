@@ -57,10 +57,19 @@ async def generate_daily_briefing(
     current_day = adherence.get("current_day", 1)
     today_exercises = await get_patient_exercises(session, patient_id, day=current_day)
 
+    # Compute earned badges for context
+    from app.db.repository import get_completed_goal_count
+    from app.services.badges import compute_badges
+
+    completed_goals = await get_completed_goal_count(session, patient_id)
+    badges = compute_badges(adherence, len(goals), completed_goals)
+    earned_badge_names = [b["name"] for b in badges if b["earned"]]
+
     # Build context
     goal_text = ", ".join(g.goal_text for g in goals) if goals else "No goals set"
     insight_text = "; ".join(i.content for i in insights) if insights else "New patient"
     exercise_names = ", ".join(e.name for e in today_exercises) if today_exercises else "Rest day"
+    badge_text = ", ".join(earned_badge_names) if earned_badge_names else "None yet"
 
     context = (
         "Patient: {patient_id}\n"
@@ -68,6 +77,7 @@ async def generate_daily_briefing(
         "Goals: {goals}\n"
         "Today's exercises: {exercises} ({count} total)\n"
         "Pain trend: {pain} | Function trend: {function}\n"
+        "Badges earned: {badges}\n"
         "What you know: {insights}"
     ).format(
         patient_id=patient_id,
@@ -79,6 +89,7 @@ async def generate_daily_briefing(
         count=len(today_exercises),
         pain=outcomes.get("pain_trend", "stable"),
         function=outcomes.get("function_trend", "stable"),
+        badges=badge_text,
         insights=insight_text,
     )
 

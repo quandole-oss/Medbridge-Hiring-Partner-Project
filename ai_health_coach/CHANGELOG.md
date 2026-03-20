@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Gamification / badge & achievement system with 10 badges computed on-the-fly from existing data
+- `app/services/badges.py`: pure `compute_badges()` function with badge catalog and earned/earned_today flags
+- `get_completed_goal_count()` repository function for goal-based badges
+- `BadgeItem` schema and `badges`/`completed_goal_count` fields on `AdherenceResponse` (backward-compatible defaults)
+- Achievements section on Home tab: horizontal scrollable badge row with gold glow for earned, greyed+lock for locked
+- Badge celebration system: CSS confetti burst + gold slide-up toast with sessionStorage dedup
+- Badge context added to daily briefing LLM prompt so the coach can reference achievements
+- 15 new badge tests (110 total passing): pure function unit tests + DB integration + endpoint integration
+
 - Clinician Dashboard: full clinician-facing UI with login, 5 data panels, and patient detail drawer
 - `Clinician` and `ClinicalAlert` database models with `Patient.alerts` relationship
 - `alert_clinician` tool now persists ClinicalAlert rows + audit log entries (was placeholder)

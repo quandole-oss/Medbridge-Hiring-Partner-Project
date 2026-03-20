@@ -411,6 +411,7 @@ async def seed_demo_patient(session: AsyncSession) -> None:
         session.add(completion)
 
     # ── PRO outcome reports: realistic recovery arc ──
+    today = datetime.date.today()
     pro_data = [
         # (days_ago, pain, function, wellbeing)
         (4, 7, 3, 4),

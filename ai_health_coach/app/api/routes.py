@@ -45,6 +45,7 @@ from app.db.repository import (
     get_active_goal,
     get_active_goals,
     get_adherence_stats,
+    get_completed_goal_count,
     get_education_for_day,
     get_exercise_by_id,
     get_exercise_completions,
@@ -770,12 +771,22 @@ async def get_adherence(
     _api_key: str = Depends(verify_api_key),
     session: AsyncSession = Depends(get_db_session),
 ):
+    from app.services.badges import compute_badges
+
     patient = await get_patient(session, patient_id)
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
 
     stats = await get_adherence_stats(session, patient_id)
-    return AdherenceResponse(patient_id=patient_id, **stats)
+    active_goals = await get_active_goals(session, patient_id)
+    completed_goals = await get_completed_goal_count(session, patient_id)
+    badges = compute_badges(stats, len(active_goals), completed_goals)
+    return AdherenceResponse(
+        patient_id=patient_id,
+        badges=badges,
+        completed_goal_count=completed_goals,
+        **stats,
+    )
 
 
 @router.post(

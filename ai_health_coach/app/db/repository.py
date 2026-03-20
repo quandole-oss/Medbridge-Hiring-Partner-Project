@@ -306,6 +306,19 @@ async def unmark_exercise_complete(
     await session.commit()
 
 
+async def get_completed_goal_count(
+    session: AsyncSession, patient_id: str
+) -> int:
+    """Count goals that have been completed (is_active=False)."""
+    result = await session.execute(
+        select(func.count(Goal.goal_id)).where(
+            Goal.patient_id == patient_id,
+            Goal.is_active == False,  # noqa: E712
+        )
+    )
+    return result.scalar_one()
+
+
 async def get_adherence_stats(
     session: AsyncSession, patient_id: str, week_number: Optional[int] = None
 ) -> dict:
