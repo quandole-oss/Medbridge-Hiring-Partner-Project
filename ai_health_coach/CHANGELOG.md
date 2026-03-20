@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Completion ring on Home tab now shows today's progress instead of cumulative rate; cumulative rate moved to "Overall" stat in the stats grid
 - "None" goals in banner + hidden "Add Goal" button: filter sentinel goals ("None"/"null") at API layer (`_build_goal_responses`), `set_goal` tool input validation, frontend `updateGoals()`, and startup DB cleanup
 - "None" goal display: guard against LLM returning literal `"None"` string in goal extraction, API response sanitization, and frontend display
 - Chat crash on tool calls: `active_coaching_node` now executes tool calls in a loop (up to 3 iterations) and returns proper `ToolMessage` responses so Anthropic API history stays valid

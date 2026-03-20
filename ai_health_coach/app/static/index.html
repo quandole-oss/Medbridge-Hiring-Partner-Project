@@ -2736,7 +2736,9 @@
 
         // 5. Progress section
         var circumference = 2 * Math.PI * 58;
-        var offset = circumference - (a.completion_rate / 100) * circumference;
+        var todayRate = a.exercises_due_today > 0
+          ? Math.round(a.exercises_completed_today / a.exercises_due_today * 100) : 0;
+        var offset = circumference - (todayRate / 100) * circumference;
 
         var milestoneDays = [2, 5, 7];
         var milestonesHtml = '';
@@ -2824,8 +2826,8 @@
           coachCardHtml +
           proTrendHtml +
           '<div class="home-section-divider"><span>Progress</span></div>' +
-          '<div class="adherence-ring-container"><div class="adherence-ring"><svg viewBox="0 0 140 140"><circle class="ring-bg" cx="70" cy="70" r="58"/><circle class="ring-fg" cx="70" cy="70" r="58" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><div class="ring-label"><div class="ring-pct">' + Math.round(a.completion_rate) + '%</div><div class="ring-sub">Completion</div></div></div></div>' +
-          '<div class="stats-grid"><div class="stat-card"><div class="stat-value">' + a.streak + '</div><div class="stat-label">Day Streak</div></div><div class="stat-card"><div class="stat-value">' + a.total_completed + '</div><div class="stat-label">Completed</div></div><div class="stat-card"><div class="stat-value">' + Math.round(a.completion_rate) + '%</div><div class="stat-label">Rate</div></div><div class="stat-card"><div class="stat-value">' + a.current_day + '</div><div class="stat-label">Program Day</div></div></div>' +
+          '<div class="adherence-ring-container"><div class="adherence-ring"><svg viewBox="0 0 140 140"><circle class="ring-bg" cx="70" cy="70" r="58"/><circle class="ring-fg" cx="70" cy="70" r="58" stroke-dasharray="' + circumference.toFixed(1) + '" stroke-dashoffset="' + offset.toFixed(1) + '"/></svg><div class="ring-label"><div class="ring-pct">' + todayRate + '%</div><div class="ring-sub">Today</div></div></div></div>' +
+          '<div class="stats-grid"><div class="stat-card"><div class="stat-value">' + a.streak + '</div><div class="stat-label">Day Streak</div></div><div class="stat-card"><div class="stat-value">' + a.total_completed + '</div><div class="stat-label">Completed</div></div><div class="stat-card"><div class="stat-value">' + Math.round(a.completion_rate) + '%</div><div class="stat-label">Overall</div></div><div class="stat-card"><div class="stat-value">' + a.current_day + '</div><div class="stat-label">Program Day</div></div></div>' +
           '<div class="milestones-section"><div class="milestones-title">Milestones</div><div class="milestones-row">' + milestonesHtml + '</div></div>' +
           '<div class="daily-chart-section"><div class="daily-chart-title">Daily Progress</div><div class="daily-bars">' + barsHtml + '</div></div>';
 
