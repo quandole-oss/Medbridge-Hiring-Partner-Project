@@ -447,6 +447,10 @@
       background: var(--gold); border-color: var(--gold);
     }
     .set-check-btn.checked svg { opacity: 1; }
+    .set-check-btn.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
     .set-check-btn.partial {
       background: #fff; border-color: var(--gold);
     }
@@ -1183,6 +1187,13 @@
         expandedExerciseId: null
       };
 
+      function completionDateForCurrentDay() {
+        if (!state.enrollmentDate) return undefined;
+        var d = new Date(state.enrollmentDate + 'T00:00:00');
+        d.setDate(d.getDate() + (state.currentDay - 1));
+        return d.toISOString().split('T')[0];
+      }
+
       // ─── DOM refs ───
       var welcomeScreen = document.getElementById('welcomeScreen');
       var appShell = document.getElementById('appShell');
@@ -1299,6 +1310,7 @@
 
         updateExercise: function (patientId, exerciseId, data) {
           var body = { exercise_id: exerciseId };
+          if (data.date !== undefined) body.date = data.date;
           if (data.sets_completed !== undefined) body.sets_completed = data.sets_completed;
           if (data.set_statuses !== undefined) body.set_statuses = data.set_statuses;
           if (data.difficulty !== undefined) body.difficulty = data.difficulty;
@@ -1609,6 +1621,9 @@
             return api.triggerEvent(pid, 'consent_granted')
               .then(function (data) {
                 updatePhase(data.new_phase);
+                if (data.enrollment_date) {
+                  state.enrollmentDate = data.enrollment_date.split('T')[0];
+                }
                 showApp();
                 sendGreeting();
               });
@@ -2263,6 +2278,17 @@
             ex.set_statuses.push(i < ex.sets_completed ? 'complete' : null);
           }
         }
+        // Compact gaps: shift non-null statuses to the front so sets fill left-to-right
+        var filled = [];
+        for (var j = 0; j < ex.set_statuses.length; j++) {
+          if (ex.set_statuses[j] !== null && ex.set_statuses[j] !== undefined) {
+            filled.push(ex.set_statuses[j]);
+          }
+        }
+        for (var k = 0; k < ex.set_statuses.length; k++) {
+          ex.set_statuses[k] = k < filled.length ? filled[k] : null;
+        }
+        ex.sets_completed = filled.length;
       }
 
       function buildExerciseCard(ex) {
@@ -2408,6 +2434,11 @@
           var setStatus = ex.set_statuses[j];
           if (setStatus === 'complete') setBtn.classList.add('checked');
           else if (setStatus === 'partial') setBtn.classList.add('partial');
+          var isLocked = (j > 0 && !ex.set_statuses[j - 1]);
+          if (isLocked) {
+            setBtn.classList.add('disabled');
+            setBtn.disabled = true;
+          }
           setBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
           setBtn.setAttribute('aria-label', 'Toggle set ' + (j + 1));
           setBtn.addEventListener('click', (function (exercise, setIdx) {
@@ -2506,6 +2537,7 @@
       function toggleSet(exercise, setIdx) {
         // Three-state cycle per set: null -> "complete" -> "partial" -> null
         ensureSetStatuses(exercise);
+        if (setIdx > 0 && !exercise.set_statuses[setIdx - 1]) return;
         var current = exercise.set_statuses[setIdx];
         var next;
         if (current === null || current === undefined) next = 'complete';
@@ -2514,6 +2546,11 @@
 
         var newStatuses = exercise.set_statuses.slice();
         newStatuses[setIdx] = next;
+        if (next === null) {
+          for (var k = setIdx + 1; k < newStatuses.length; k++) {
+            newStatuses[k] = null;
+          }
+        }
 
         var newCompleted = 0;
         for (var i = 0; i < newStatuses.length; i++) {
@@ -2522,7 +2559,8 @@
 
         api.updateExercise(state.patientId, exercise.exercise_id, {
           set_statuses: newStatuses,
-          sets_completed: newCompleted
+          sets_completed: newCompleted,
+          date: completionDateForCurrentDay()
         })
           .then(function (data) {
             exercise.sets_completed = data.sets_completed;
@@ -2535,7 +2573,7 @@
 
       function selectDifficulty(exercise, level) {
         exercise.difficulty = level;
-        api.updateExercise(state.patientId, exercise.exercise_id, { difficulty: level })
+        api.updateExercise(state.patientId, exercise.exercise_id, { difficulty: level, date: completionDateForCurrentDay() })
           .then(function () {
             renderExerciseList();
           })

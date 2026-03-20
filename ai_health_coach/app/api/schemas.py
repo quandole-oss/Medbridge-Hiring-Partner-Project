@@ -54,6 +54,7 @@ class EventTriggerResponse(BaseModel):
     patient_id: str
     new_phase: str
     message: str
+    enrollment_date: Optional[str] = None
 
 
 class PatientStatusResponse(BaseModel):

@@ -383,6 +383,7 @@ async def trigger_event(
                 patient_id=request.patient_id,
                 new_phase=patient.current_phase,
                 message="Consent already granted",
+                enrollment_date=patient.enrollment_date.isoformat() if patient.enrollment_date else None,
             )
         patient = await grant_consent(session, request.patient_id)
         await seed_exercises(session, request.patient_id)
@@ -393,6 +394,7 @@ async def trigger_event(
             patient_id=request.patient_id,
             new_phase=patient.current_phase,
             message="Consent granted, patient moved to onboarding",
+            enrollment_date=patient.enrollment_date.isoformat() if patient.enrollment_date else None,
         )
 
     # Validate transition

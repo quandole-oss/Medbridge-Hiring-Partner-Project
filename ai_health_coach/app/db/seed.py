@@ -367,13 +367,11 @@ async def seed_demo_patient(session: AsyncSession) -> None:
     for ex in exercises:
         by_day.setdefault(ex.day_number, []).append(ex)
 
-    today = now.date()
-
     # Days 1-4: varied completions (streak counts if ≥1 assigned exercise done)
     # Day 1: 3/3, Day 2: 2/3, Day 3: 3/3, Day 4: 1/3
     completions_per_day = {1: 3, 2: 2, 3: 3, 4: 1}
     for day_num in range(1, 5):
-        completed_date = today - datetime.timedelta(days=5 - day_num)
+        completed_date = enrollment.date() + datetime.timedelta(days=day_num - 1)
         day_exercises = by_day.get(day_num, [])
         for ex in day_exercises[:completions_per_day[day_num]]:
             statuses = ["complete"] * ex.sets
@@ -404,7 +402,7 @@ async def seed_demo_patient(session: AsyncSession) -> None:
         completion = ExerciseCompletion(
             patient_id=DEMO_PATIENT_ID,
             exercise_id=ex.exercise_id,
-            completed_date=today,
+            completed_date=enrollment.date() + datetime.timedelta(days=4),
             completed_at=now - datetime.timedelta(minutes=45),
             sets_completed=sum(1 for s in statuses if s is not None),
             set_statuses=statuses,
