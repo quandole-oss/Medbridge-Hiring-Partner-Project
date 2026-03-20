@@ -95,6 +95,23 @@
 - [x] `_weekly_review=False` passed in `_run_chat_pipeline` to prevent stale flag
 - [x] 8 new tests (routing with flag, node output, MI inclusion, error handling)
 
+## Clinician Dashboard
+
+- [x] `Clinician` model: clinician_id, name, email, api_key, is_active
+- [x] `ClinicalAlert` model: alert_id, patient_id, alert_type, urgency, reason, status, context, timestamps
+- [x] `Patient.alerts` relationship
+- [x] Repository: `create_clinical_alert`, `get_alerts`, `get_alert_by_id`, `update_alert_status`, `count_open_alerts`
+- [x] Repository: `get_all_patients`, `get_patient_audit_log`, `get_adherence_heatmap_data`, `get_all_outcome_trends`
+- [x] Rewrite `alert_clinician` tool to persist ClinicalAlert + audit log (sync→async bridge)
+- [x] `verify_clinician` auth dependency (DB-backed API key lookup)
+- [x] Schemas: AlertResponse, UpdateAlertRequest, AlertCountResponse, PatientOverviewItem/Response, AuditEventResponse, PatientDetailResponse, AdherenceHeatmapCell/Response, PatientOutcomeTrend, OutcomeTrendsResponse, PatientInsightResponse
+- [x] 8 clinician endpoints: alerts list/counts/patch, patients list/detail, audit-log, adherence-heatmap, outcome-trends
+- [x] `clinician_routes.py` router wired into `main.py`
+- [x] `seed_demo_clinician()` + seed demo alerts for demo-patient
+- [x] `/clinician` route serves clinician dashboard HTML
+- [x] `clinician.html`: login flow, 5 panels (alerts, patients, adherence heatmap, outcome trends, audit log), patient detail drawer
+- [x] 19 new tests: auth (valid/invalid/inactive), alert CRUD (list/filter/counts/patch), patient overview, patient detail, audit log, heatmap, outcome trends
+
 ## Adaptive Patient Memory
 
 - [x] PatientInsight DB model with confidence, category, reinforcement tracking

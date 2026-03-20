@@ -48,3 +48,23 @@ async def client(db_session):
 @pytest.fixture
 def api_headers():
     return {"X-Api-Key": "test-api-key"}
+
+
+@pytest_asyncio.fixture
+async def clinician(db_session):
+    """Seed a test clinician."""
+    from app.db.models import Clinician
+    c = Clinician(
+        clinician_id="test-clinician",
+        name="Dr. Test",
+        email="test@example.com",
+        api_key="test-clinician-key",
+    )
+    db_session.add(c)
+    await db_session.commit()
+    return c
+
+
+@pytest.fixture
+def clinician_headers():
+    return {"X-Api-Key": "test-clinician-key"}

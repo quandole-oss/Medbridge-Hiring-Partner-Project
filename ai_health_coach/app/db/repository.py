@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
     AuditLog,
+    Clinician,
+    ClinicalAlert,
     DailyBriefing,
     EducationContent,
     EducationView,
@@ -854,3 +856,160 @@ async def save_daily_briefing(
     await session.commit()
     await session.refresh(briefing)
     return briefing
+
+
+# ── Clinical Alerts ──────────────────────────────────────────────────────────
+
+
+async def create_clinical_alert(
+    session: AsyncSession,
+    patient_id: str,
+    alert_type: str,
+    urgency: str,
+    reason: str,
+    context: Optional[dict] = None,
+) -> ClinicalAlert:
+    alert = ClinicalAlert(
+        patient_id=patient_id,
+        alert_type=alert_type,
+        urgency=urgency,
+        reason=reason,
+        context=context,
+    )
+    session.add(alert)
+    await session.commit()
+    await session.refresh(alert)
+    return alert
+
+
+async def get_alerts(
+    session: AsyncSession,
+    status: Optional[str] = None,
+    urgency: Optional[str] = None,
+    patient_id: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[ClinicalAlert]:
+    stmt = select(ClinicalAlert)
+    if status:
+        stmt = stmt.where(ClinicalAlert.status == status)
+    if urgency:
+        stmt = stmt.where(ClinicalAlert.urgency == urgency)
+    if patient_id:
+        stmt = stmt.where(ClinicalAlert.patient_id == patient_id)
+    stmt = stmt.order_by(ClinicalAlert.created_at.desc()).offset(offset).limit(limit)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_alert_by_id(
+    session: AsyncSession, alert_id: int
+) -> Optional[ClinicalAlert]:
+    result = await session.execute(
+        select(ClinicalAlert).where(ClinicalAlert.alert_id == alert_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_alert_status(
+    session: AsyncSession,
+    alert_id: int,
+    status: str,
+    resolved_note: Optional[str] = None,
+) -> Optional[ClinicalAlert]:
+    alert = await get_alert_by_id(session, alert_id)
+    if not alert:
+        return None
+    alert.status = status
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if status == "acknowledged":
+        alert.acknowledged_at = now
+    elif status in ("resolved", "dismissed"):
+        alert.resolved_at = now
+        if resolved_note:
+            alert.resolved_note = resolved_note
+    await session.commit()
+    await session.refresh(alert)
+    return alert
+
+
+async def count_open_alerts(session: AsyncSession) -> dict:
+    result = await session.execute(
+        select(ClinicalAlert.urgency, func.count(ClinicalAlert.alert_id)).where(
+            ClinicalAlert.status == "open"
+        ).group_by(ClinicalAlert.urgency)
+    )
+    counts = {"total": 0, "critical": 0, "high": 0, "low": 0}
+    for urgency, count in result.all():
+        key = urgency.lower() if urgency.lower() in counts else "low"
+        counts[key] = count
+        counts["total"] += count
+    return counts
+
+
+# ── Clinician Dashboard Queries ──────────────────────────────────────────────
+
+
+async def get_all_patients(
+    session: AsyncSession, phase: Optional[str] = None
+) -> List[Patient]:
+    stmt = select(Patient).where(Patient.consent_status == True)
+    if phase:
+        stmt = stmt.where(Patient.current_phase == phase)
+    stmt = stmt.order_by(Patient.last_message_at.desc().nulls_last())
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_patient_audit_log(
+    session: AsyncSession,
+    patient_id: str,
+    event_type: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[AuditLog]:
+    stmt = select(AuditLog).where(AuditLog.patient_id == patient_id)
+    if event_type:
+        stmt = stmt.where(AuditLog.event_type == event_type)
+    stmt = stmt.order_by(AuditLog.timestamp.desc()).offset(offset).limit(limit)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_adherence_heatmap_data(session: AsyncSession) -> List[dict]:
+    patients = await get_all_patients(session)
+    cells = []
+    for patient in patients:
+        stats = await get_adherence_stats(session, patient.patient_id)
+        for dc in stats.get("daily_completions", []):
+            total = dc["total"]
+            rate = (dc["completed"] / total * 100) if total > 0 else 0.0
+            cells.append({
+                "patient_id": patient.patient_id,
+                "day": dc["day"],
+                "completed": dc["completed"],
+                "total": total,
+                "rate": round(rate, 1),
+            })
+    return cells
+
+
+async def get_all_outcome_trends(session: AsyncSession) -> List[dict]:
+    patients = await get_all_patients(session)
+    trends = []
+    for patient in patients:
+        summary = await get_outcome_summary(session, patient.patient_id)
+        if summary["report_count"] == 0:
+            continue
+        latest = summary.get("latest") or {}
+        trends.append({
+            "patient_id": patient.patient_id,
+            "pain_trend": summary["pain_trend"],
+            "function_trend": summary["function_trend"],
+            "wellbeing_trend": summary["wellbeing_trend"],
+            "latest_pain": latest.get("pain_score"),
+            "latest_function": latest.get("function_score"),
+            "latest_wellbeing": latest.get("wellbeing_score"),
+            "report_count": summary["report_count"],
+        })
+    return trends

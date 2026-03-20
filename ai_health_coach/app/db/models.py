@@ -81,6 +81,7 @@ class Patient(Base):
     insights: Mapped[List["PatientInsight"]] = relationship(
         back_populates="patient"
     )
+    alerts: Mapped[List["ClinicalAlert"]] = relationship(back_populates="patient")
 
 
 class Goal(Base):
@@ -239,6 +240,47 @@ class DailyBriefing(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, server_default=func.now()
     )
+
+
+class Clinician(Base):
+    __tablename__ = "clinicians"
+
+    clinician_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    email: Mapped[str] = mapped_column(String, unique=True)
+    api_key: Mapped[str] = mapped_column(String, unique=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+
+class ClinicalAlert(Base):
+    __tablename__ = "clinical_alerts"
+
+    alert_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    patient_id: Mapped[str] = mapped_column(
+        String, ForeignKey("patients.patient_id")
+    )
+    alert_type: Mapped[str] = mapped_column(String)
+    urgency: Mapped[str] = mapped_column(String)
+    reason: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="open")
+    context: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    acknowledged_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, default=None
+    )
+    resolved_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime, default=None
+    )
+    resolved_note: Mapped[Optional[str]] = mapped_column(String, default=None)
+
+    patient: Mapped["Patient"] = relationship(back_populates="alerts")
 
 
 class EducationContent(Base):

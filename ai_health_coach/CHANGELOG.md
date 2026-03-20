@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Clinician Dashboard: full clinician-facing UI with login, 5 data panels, and patient detail drawer
+- `Clinician` and `ClinicalAlert` database models with `Patient.alerts` relationship
+- `alert_clinician` tool now persists ClinicalAlert rows + audit log entries (was placeholder)
+- DB-backed clinician authentication via `verify_clinician` dependency
+- 8 clinician API endpoints: alert list/counts/patch, patient list/detail, audit log, adherence heatmap, outcome trends
+- Demo clinician seed data (`Dr. Demo` with `demo-clinician-key`) and sample alerts
+- `clinician.html` SPA: alerts panel with acknowledge/resolve, patients table, CSS adherence heatmap, Chart.js outcome trends, paginated audit log, patient detail slide-over drawer
+- 19 new tests (93 total passing): clinician auth, alert CRUD, patient overview/detail, audit log, cross-patient analytics
+
 - Closed-loop adaptive coaching: three integrated features that transform the app from reactive chatbot to proactive coach
 - Auto exercise progression: automatically adjusts exercises when 2+ same-difficulty signals detected in 3 days
 - Exercise progression service (`app/services/exercise_progression.py`): extracted adjustment pipeline, reusable by API and auto-trigger

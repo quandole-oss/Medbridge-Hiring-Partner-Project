@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1B365D">
+  <title>MedBridge Clinician Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --navy: #1B365D;
+      --gold: #F5A623;
+      --gold-hover: #E09515;
+      --gold-light: #FFF8E7;
+      --bg: #F7F6F3;
+      --text: #2D2D2D;
+      --text-muted: #6B6B6B;
+      --border: #E8E5DE;
+      --error: #C53030;
+      --success: #2D8A4E;
+      --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-serif: Georgia, 'Times New Roman', serif;
+      --sidebar-width: 260px;
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--text);
+      background: var(--bg);
+      height: 100dvh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    button, input, textarea, select { font-family: inherit; font-size: inherit; }
+
+    /* ─── Toast / Notification ─── */
+
+    #toast-area {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #fff;
+      border-radius: 10px;
+      padding: 12px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      font-size: 0.9rem;
+      pointer-events: auto;
+      animation: toast-in 0.3s ease;
+      max-width: 400px;
+      border-left: 4px solid var(--error);
+    }
+
+    .toast.success { border-left-color: var(--success); }
+    .toast.info { border-left-color: var(--navy); }
+
+    .toast-exit {
+      animation: toast-out 0.25s ease forwards;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toast-out {
+      from { opacity: 1; transform: translateX(0); }
+      to { opacity: 0; transform: translateX(40px); }
+    }
+
+    /* ─── Login Screen ─── */
+
+    .login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 24px;
+      background: linear-gradient(160deg, #F7F6F3 0%, #EDE9E0 100%);
+    }
+
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 48px 40px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 1px 3px rgba(27,54,93,0.06), 0 8px 24px rgba(27,54,93,0.08);
+    }
+
+    .login-card h1 {
+      font-family: var(--font-serif);
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+
+    .login-card .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 32px;
+    }
+
+    .form-group { margin-bottom: 24px; }
+    .form-group label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      color: var(--text); margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+      border-radius: 10px; font-size: 16px; color: var(--text);
+      background: #fff; transition: border-color 0.15s ease;
+    }
+    .form-group input:focus {
+      border-color: var(--gold);
+      outline: none;
+    }
+
+    .login-error {
+      color: var(--error);
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px 24px;
+      background: var(--gold);
+      color: #fff;
+      font-weight: 600;
+      font-size: 1rem;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn-primary:hover { background: var(--gold-hover); }
+    .btn-primary:disabled {
+      opacity: 0.6; cursor: not-allowed;
+    }
+
+    /* ─── App Shell ─── */
+
+    .app-shell {
+      display: none;
+      height: 100vh;
+      flex-direction: row;
+    }
+
+    .app-shell.active {
+      display: flex;
+    }
+
+    /* ─── Sidebar ─── */
+
+    .sidebar {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      background: var(--navy);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow-y: auto;
+      transition: width 0.25s ease, min-width 0.25s ease;
+    }
+
+    .sidebar-header {
+      padding: 28px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .sidebar-header h2 {
+      font-family: var(--font-serif);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 2px;
+    }
+
+    .sidebar-header .sidebar-subtitle {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.6);
+      font-weight: 400;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 12px 0;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 24px;
+      color: rgba(255,255,255,0.7);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      position: relative;
+    }
+
+    .nav-item:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.07);
+    }
+
+    .nav-item.active {
+      color: #fff;
+      background: rgba(255,255,255,0.12);
+      border-left: 3px solid var(--gold);
+      padding-left: 21px;
+    }
+
+    .nav-item .nav-icon {
+      font-size: 1.1rem;
+      width: 22px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .nav-item .nav-label {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav-badge {
+      background: var(--error);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      min-width: 20px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 16px 24px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      width: 100%;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.7);
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-logout:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    /* ─── Main Content ─── */
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .panel-title {
+      font-family: var(--font-serif);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .panel-filters {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-select {
+      padding: 8px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--text);
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .filter-select:focus {
+      border-color: var(--gold);
+      outline: none;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+    }
+
+    .panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .panel.active { display: flex; }
+
+    .loading-text {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      padding: 40px 0;
+      text-align: center;
+    }
+
+    .empty-text {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    /* ─── Alert Cards ─── */
+
+    .alert-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      border-left: 4px solid #ccc;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      transition: box-shadow 0.15s ease;
+    }
+
+    .alert-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .alert-card.urgency-CRITICAL { border-left-color: var(--error); }
+    .alert-card.urgency-HIGH { border-left-color: #E09515; }
+    .alert-card.urgency-LOW { border-left-color: #999; }
+
+    .alert-card-body { flex: 1; min-width: 0; }
+
+    .alert-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+      gap: 12px;
+    }
+
+    .alert-patient-link {
+      font-weight: 600;
+      color: var(--navy);
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .alert-patient-link:hover { text-decoration: underline; }
+
+    .alert-time {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+    }
+
+    .alert-reason {
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.45;
+      margin-bottom: 8px;
+    }
+
+    .alert-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .urgency-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .urgency-badge.CRITICAL { background: #FDE8E8; color: var(--error); }
+    .urgency-badge.HIGH { background: #FFF3E0; color: #B8860B; }
+    .urgency-badge.LOW { background: #F0F0F0; color: #666; }
+
+    .status-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .status-badge.open { background: #FDE8E8; color: var(--error); }
+    .status-badge.acknowledged { background: #FFF3E0; color: #B8860B; }
+    .status-badge.resolved { background: #E6F4EA; color: var(--success); }
+    .status-badge.dismissed { background: #F0F0F0; color: #666; }
+
+    .alert-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-sm {
+      padding: 6px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      transition: all 0.15s ease;
+    }
+
+    .btn-sm:hover { border-color: var(--navy); color: var(--navy); }
+    .btn-sm.btn-ack { border-color: #E09515; color: #B8860B; }
+    .btn-sm.btn-ack:hover { background: #FFF3E0; }
+    .btn-sm.btn-resolve { border-color: var(--success); color: var(--success); }
+    .btn-sm.btn-resolve:hover { background: #E6F4EA; }
+
+    .resolve-form {
+      display: none;
+      margin-top: 10px;
+      gap: 8px;
+    }
+
+    .resolve-form.active { display: flex; flex-wrap: wrap; }
+
+    .resolve-form textarea {
+      flex: 1;
+      min-width: 200px;
+      padding: 8px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      resize: vertical;
+      min-height: 36px;
+    }
+
+    .resolve-form textarea:focus {
+      border-color: var(--gold);
+      outline: none;
+    }
+
+    /* ─── Patients Table ─── */
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    .data-table thead {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .data-table th {
+      background: var(--navy);
+      color: #fff;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .data-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .data-table tbody tr {
+      background: #fff;
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+
+    .data-table tbody tr:hover {
+      background: var(--gold-light);
+    }
+
+    .phase-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .phase-badge.active { background: #E6F4EA; color: var(--success); }
+    .phase-badge.onboarding { background: #E3F0FF; color: #1A73E8; }
+    .phase-badge.dormant { background: #FFF3E0; color: #E65100; }
+    .phase-badge.re_engaging { background: #F3E5F5; color: #7B1FA2; }
+    .phase-badge.pending { background: #F0F0F0; color: #666; }
+
+    /* ─── Adherence Heatmap ─── */
+
+    .heatmap-container {
+      overflow-x: auto;
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: 120px repeat(7, 1fr);
+      gap: 3px;
+      min-width: 500px;
+    }
+
+    .heatmap-header {
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--navy);
+      text-align: center;
+      background: #fff;
+      border-radius: 6px;
+    }
+
+    .heatmap-row-label {
+      padding: 8px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      background: #fff;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+    }
+
+    .heatmap-cell {
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #fff;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: default;
+      position: relative;
+    }
+
+    .heatmap-cell .tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      white-space: nowrap;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .heatmap-cell:hover .tooltip { display: block; }
+
+    /* ─── Outcome Trends ─── */
+
+    .chart-wrapper {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .trend-indicators {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .trend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    .trend-item .trend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    .trend-arrow {
+      font-size: 1rem;
+    }
+
+    .trend-arrow.improving { color: var(--success); }
+    .trend-arrow.stable { color: var(--text-muted); }
+    .trend-arrow.declining { color: var(--error); }
+
+    /* ─── Audit Log ─── */
+
+    .audit-row {
+      background: #fff;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    .audit-row-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+
+    .audit-row-header:hover { background: var(--gold-light); }
+
+    .audit-row-time {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      white-space: nowrap;
+      min-width: 70px;
+    }
+
+    .event-type-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--gold-light);
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .audit-summary {
+      flex: 1;
+      font-size: 0.85rem;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .audit-expand-icon {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      transition: transform 0.2s ease;
+    }
+
+    .audit-row.expanded .audit-expand-icon {
+      transform: rotate(90deg);
+    }
+
+    .audit-detail {
+      display: none;
+      padding: 0 16px 16px;
+    }
+
+    .audit-row.expanded .audit-detail {
+      display: block;
+    }
+
+    .audit-detail pre {
+      background: #F5F5F5;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 0.78rem;
+      overflow-x: auto;
+      line-height: 1.5;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .btn-load-more {
+      display: block;
+      margin: 16px auto 0;
+      padding: 10px 24px;
+      background: #fff;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--navy);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-load-more:hover {
+      border-color: var(--navy);
+      background: var(--gold-light);
+    }
+
+    /* ─── Patient Detail Drawer ─── */
+
+    .drawer-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 1000;
+      animation: fade-in 0.2s ease;
+    }
+
+    .drawer-overlay.active { display: block; }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 500px;
+      max-width: 100vw;
+      height: 100vh;
+      background: #fff;
+      z-index: 1001;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+      flex-shrink: 0;
+    }
+
+    .drawer-header-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .drawer-patient-id {
+      font-family: var(--font-serif);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .btn-close-drawer {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 1.2rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .btn-close-drawer:hover { background: var(--border); color: var(--text); }
+
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .drawer-section {
+      margin-bottom: 24px;
+    }
+
+    .drawer-section h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid var(--gold);
+    }
+
+    .goal-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .goal-item:last-child { border-bottom: none; }
+    .goal-name { font-weight: 600; }
+    .goal-target { color: var(--text-muted); font-size: 0.8rem; }
+
+    /* Adherence Ring */
+    .adherence-ring-container {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .adherence-ring {
+      width: 80px;
+      height: 80px;
+      flex-shrink: 0;
+    }
+
+    .adherence-stats {
+      font-size: 0.85rem;
+      line-height: 1.8;
+    }
+
+    .adherence-stats strong {
+      color: var(--navy);
+    }
+
+    /* Outcome in Drawer */
+    .outcome-scores {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .outcome-score-card {
+      flex: 1;
+      min-width: 100px;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .outcome-score-card .score-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .outcome-score-card .score-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .insight-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 12px;
+      background: var(--gold-light);
+      color: var(--navy);
+      margin-right: 6px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .insight-item {
+      padding: 8px 0;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .insight-item:last-child { border-bottom: none; }
+
+    .drawer-event-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .drawer-event-item:last-child { border-bottom: none; }
+    .drawer-event-time {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+    .drawer-event-type {
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    /* ─── Responsive: sidebar collapse ─── */
+
+    @media (max-width: 900px) {
+      .sidebar {
+        width: 60px;
+        min-width: 60px;
+      }
+
+      .sidebar-header h2 {
+        display: none;
+      }
+
+      .sidebar-header .sidebar-subtitle {
+        display: none;
+      }
+
+      .sidebar-header {
+        padding: 16px 8px;
+        text-align: center;
+      }
+
+      .sidebar-header::before {
+        content: 'MB';
+        font-family: var(--font-serif);
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--gold);
+      }
+
+      .nav-item {
+        padding: 12px 0;
+        justify-content: center;
+      }
+
+      .nav-item.active {
+        padding-left: 0;
+        border-left-width: 3px;
+      }
+
+      .nav-item .nav-label { display: none; }
+      .nav-badge {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        font-size: 0.6rem;
+        padding: 1px 4px;
+        min-width: 14px;
+      }
+
+      .sidebar-footer {
+        padding: 12px 8px;
+      }
+
+      .btn-logout .logout-label { display: none; }
+      .btn-logout {
+        justify-content: center;
+        padding: 10px 8px;
+      }
+
+      .panel-header { padding: 16px 20px; }
+      .panel-body { padding: 16px 20px; }
+
+      .drawer { width: 100vw; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toast area -->
+  <div id="toast-area"></div>
+
+  <!-- Login Screen -->
+  <div class="login-screen" id="login-screen">
+    <div class="login-card">
+      <h1>MedBridge</h1>
+      <p class="subtitle">Clinician Dashboard &mdash; Sign in with your API key to monitor patients, review alerts, and track outcomes.</p>
+      <div class="form-group">
+        <label for="api-key-input">API Key</label>
+        <input type="password" id="api-key-input" placeholder="Enter your clinician API key" autocomplete="off">
+      </div>
+      <div class="login-error" id="login-error"></div>
+      <button class="btn-primary" id="login-btn">Sign In</button>
+    </div>
+  </div>
+
+  <!-- App Shell -->
+  <div class="app-shell" id="app-shell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>MedBridge</h2>
+        <span class="sidebar-subtitle">Clinician Dashboard</span>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-panel="alerts">
+          <span class="nav-icon">&#x1F514;</span>
+          <span class="nav-label">Alerts</span>
+          <span class="nav-badge" id="alert-badge" style="display:none;">0</span>
+        </button>
+        <button class="nav-item" data-panel="patients">
+          <span class="nav-icon">&#x1F465;</span>
+          <span class="nav-label">Patients</span>
+        </button>
+        <button class="nav-item" data-panel="adherence">
+          <span class="nav-icon">&#x1F4CA;</span>
+          <span class="nav-label">Adherence</span>
+        </button>
+        <button class="nav-item" data-panel="outcomes">
+          <span class="nav-icon">&#x1F4C8;</span>
+          <span class="nav-label">Outcomes</span>
+        </button>
+        <button class="nav-item" data-panel="audit">
+          <span class="nav-icon">&#x1F4DD;</span>
+          <span class="nav-label">Audit Log</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn-logout" id="logout-btn">
+          <span>&#x2190;</span>
+          <span class="logout-label">Log Out</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+      <!-- ═══ Alerts Panel ═══ -->
+      <div class="panel active" id="panel-alerts">
+        <div class="panel-header">
+          <h1 class="panel-title">Alerts</h1>
+          <div class="panel-filters">
+            <select class="filter-select" id="alert-urgency-filter">
+              <option value="">All Urgency</option>
+              <option value="CRITICAL">Critical</option>
+              <option value="HIGH">High</option>
+              <option value="LOW">Low</option>
+            </select>
+            <select class="filter-select" id="alert-status-filter">
+              <option value="">All Status</option>
+              <option value="open">Open</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="resolved">Resolved</option>
+              <option value="dismissed">Dismissed</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" id="alerts-list">
+          <div class="loading-text">Loading alerts...</div>
+        </div>
+      </div>
+
+      <!-- ═══ Patients Panel ═══ -->
+      <div class="panel" id="panel-patients">
+        <div class="panel-header">
+          <h1 class="panel-title">Patients</h1>
+          <div class="panel-filters">
+            <select class="filter-select" id="patient-phase-filter">
+              <option value="">All Phases</option>
+              <option value="active">Active</option>
+              <option value="onboarding">Onboarding</option>
+              <option value="dormant">Dormant</option>
+              <option value="re_engaging">Re-engaging</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" id="patients-body">
+          <div class="loading-text">Loading patients...</div>
+        </div>
+      </div>
+
+      <!-- ═══ Adherence Heatmap Panel ═══ -->
+      <div class="panel" id="panel-adherence">
+        <div class="panel-header">
+          <h1 class="panel-title">Adherence Heatmap</h1>
+        </div>
+        <div class="panel-body" id="adherence-body">
+          <div class="loading-text">Loading adherence data...</div>
+        </div>
+      </div>
+
+      <!-- ═══ Outcome Trends Panel ═══ -->
+      <div class="panel" id="panel-outcomes">
+        <div class="panel-header">
+          <h1 class="panel-title">Outcome Trends</h1>
+          <div class="panel-filters">
+            <select class="filter-select" id="outcome-patient-select">
+              <option value="">Select a patient...</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" id="outcomes-body">
+          <div class="empty-text">Select a patient to view outcome trends.</div>
+        </div>
+      </div>
+
+      <!-- ═══ Audit Log Panel ═══ -->
+      <div class="panel" id="panel-audit">
+        <div class="panel-header">
+          <h1 class="panel-title">Audit Log</h1>
+          <div class="panel-filters">
+            <select class="filter-select" id="audit-patient-select">
+              <option value="">Select a patient...</option>
+            </select>
+            <select class="filter-select" id="audit-event-filter" disabled>
+              <option value="">All Events</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-body" id="audit-body">
+          <div class="empty-text">Select a patient to view their audit log.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Patient Detail Drawer -->
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <div class="drawer" id="patient-drawer">
+    <div class="drawer-header">
+      <div class="drawer-header-info">
+        <span class="drawer-patient-id" id="drawer-patient-id">Patient</span>
+        <span class="phase-badge" id="drawer-phase-badge"></span>
+      </div>
+      <button class="btn-close-drawer" id="drawer-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="drawer-body" id="drawer-body">
+      <div class="loading-text">Loading patient details...</div>
+    </div>
+  </div>
+
+<script>
+(function() {
+  'use strict';
+
+  /* ════════════════════════════════════════
+     Utility functions
+     ════════════════════════════════════════ */
+
+  function relativeTime(dateStr) {
+    if (!dateStr) return 'N/A';
+    var now = Date.now();
+    var then = new Date(dateStr).getTime();
+    if (isNaN(then)) return dateStr;
+    var diff = now - then;
+    if (diff < 0) return 'just now';
+    var secs = Math.floor(diff / 1000);
+    if (secs < 60) return 'just now';
+    var mins = Math.floor(secs / 60);
+    if (mins < 60) return mins + 'm ago';
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    var days = Math.floor(hrs / 24);
+    if (days < 30) return days + 'd ago';
+    var months = Math.floor(days / 30);
+    return months + 'mo ago';
+  }
+
+  function escapeHtml(str) {
+    if (str == null) return '';
+    var div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+  }
+
+  function trendArrow(trend) {
+    if (!trend) return '<span class="trend-arrow stable">&rarr;</span>';
+    var t = trend.toLowerCase();
+    if (t === 'improving') return '<span class="trend-arrow improving">&uarr;</span>';
+    if (t === 'declining') return '<span class="trend-arrow declining">&darr;</span>';
+    return '<span class="trend-arrow stable">&rarr;</span>';
+  }
+
+  function showToast(msg, type) {
+    type = type || 'error';
+    var area = document.getElementById('toast-area');
+    var el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    area.appendChild(el);
+    setTimeout(function() {
+      el.classList.add('toast-exit');
+      setTimeout(function() { el.remove(); }, 300);
+    }, 4000);
+  }
+
+  /* ════════════════════════════════════════
+     API helper
+     ════════════════════════════════════════ */
+
+  var api = {
+    key: function() { return sessionStorage.getItem('clinician_api_key') || ''; },
+
+    request: function(method, path, params, body) {
+      var url = path;
+      if (params) {
+        var qs = [];
+        for (var k in params) {
+          if (params[k] !== '' && params[k] != null) {
+            qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+          }
+        }
+        if (qs.length) url += '?' + qs.join('&');
+      }
+      var opts = {
+        method: method,
+        headers: {
+          'X-API-Key': api.key(),
+          'Content-Type': 'application/json'
+        }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      return fetch(url, opts).then(function(res) {
+        if (res.status === 401) {
+          showToast('Unauthorized. Please log in again.');
+          logout();
+          return Promise.reject(new Error('Unauthorized'));
+        }
+        if (!res.ok) {
+          return res.text().then(function(t) {
+            var msg;
+            try { msg = JSON.parse(t).detail || t; } catch(e) { msg = t; }
+            return Promise.reject(new Error(msg || 'Request failed'));
+          });
+        }
+        return res.json();
+      });
+    },
+
+    get: function(path, params) { return api.request('GET', path, params); },
+    patch: function(path, body) { return api.request('PATCH', path, null, body); }
+  };
+
+  /* ════════════════════════════════════════
+     Login / Logout
+     ════════════════════════════════════════ */
+
+  var loginScreen = document.getElementById('login-screen');
+  var appShell = document.getElementById('app-shell');
+  var loginBtn = document.getElementById('login-btn');
+  var loginInput = document.getElementById('api-key-input');
+  var loginError = document.getElementById('login-error');
+
+  function showLogin() {
+    loginScreen.style.display = 'flex';
+    appShell.classList.remove('active');
+  }
+
+  function showApp() {
+    loginScreen.style.display = 'none';
+    appShell.classList.add('active');
+    initApp();
+  }
+
+  function logout() {
+    sessionStorage.removeItem('clinician_api_key');
+    if (alertPollTimer) clearInterval(alertPollTimer);
+    location.reload();
+  }
+
+  function attemptLogin() {
+    var key = loginInput.value.trim();
+    if (!key) {
+      loginError.textContent = 'Please enter your API key.';
+      loginError.style.display = 'block';
+      return;
+    }
+    loginBtn.disabled = true;
+    loginError.style.display = 'none';
+    sessionStorage.setItem('clinician_api_key', key);
+    api.get('/clinician/alerts/counts').then(function() {
+      showApp();
+    }).catch(function(err) {
+      sessionStorage.removeItem('clinician_api_key');
+      loginError.textContent = 'Invalid API key. Please try again.';
+      loginError.style.display = 'block';
+      loginBtn.disabled = false;
+    });
+  }
+
+  loginBtn.addEventListener('click', attemptLogin);
+  loginInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') attemptLogin();
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', logout);
+
+  // Auto-login if key exists
+  if (sessionStorage.getItem('clinician_api_key')) {
+    api.get('/clinician/alerts/counts').then(function() {
+      showApp();
+    }).catch(function() {
+      sessionStorage.removeItem('clinician_api_key');
+      showLogin();
+    });
+  } else {
+    showLogin();
+  }
+
+  /* ════════════════════════════════════════
+     Navigation
+     ════════════════════════════════════════ */
+
+  var navItems = document.querySelectorAll('.nav-item[data-panel]');
+  var panels = document.querySelectorAll('.panel');
+  var currentPanel = 'alerts';
+
+  navItems.forEach(function(item) {
+    item.addEventListener('click', function() {
+      var target = item.getAttribute('data-panel');
+      if (target === currentPanel) return;
+      navItems.forEach(function(n) { n.classList.remove('active'); });
+      item.classList.add('active');
+      panels.forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById('panel-' + target).classList.add('active');
+      currentPanel = target;
+      onPanelActivated(target);
+    });
+  });
+
+  function onPanelActivated(panel) {
+    if (panel === 'alerts') loadAlerts();
+    else if (panel === 'patients') loadPatients();
+    else if (panel === 'adherence') loadAdherence();
+    else if (panel === 'outcomes') ensurePatientSelect('outcome-patient-select');
+    else if (panel === 'audit') ensurePatientSelect('audit-patient-select');
+  }
+
+  /* ════════════════════════════════════════
+     App init
+     ════════════════════════════════════════ */
+
+  var alertPollTimer = null;
+  var patientsCache = null;
+
+  function initApp() {
+    loadAlerts();
+    loadAlertCounts();
+    alertPollTimer = setInterval(loadAlertCounts, 30000);
+  }
+
+  /* ════════════════════════════════════════
+     Alert counts badge
+     ════════════════════════════════════════ */
+
+  function loadAlertCounts() {
+    api.get('/clinician/alerts/counts').then(function(data) {
+      var badge = document.getElementById('alert-badge');
+      var total = data.total || 0;
+      if (total > 0) {
+        badge.textContent = total > 99 ? '99+' : total;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }).catch(function() {});
+  }
+
+  /* ════════════════════════════════════════
+     1. Alerts Panel
+     ════════════════════════════════════════ */
+
+  var alertUrgencyFilter = document.getElementById('alert-urgency-filter');
+  var alertStatusFilter = document.getElementById('alert-status-filter');
+
+  alertUrgencyFilter.addEventListener('change', loadAlerts);
+  alertStatusFilter.addEventListener('change', loadAlerts);
+
+  function loadAlerts() {
+    var list = document.getElementById('alerts-list');
+    list.innerHTML = '<div class="loading-text">Loading alerts...</div>';
+    var params = {
+      urgency: alertUrgencyFilter.value,
+      status: alertStatusFilter.value,
+      limit: 50,
+      offset: 0
+    };
+    api.get('/clinician/alerts', params).then(function(alerts) {
+      if (!Array.isArray(alerts) || alerts.length === 0) {
+        list.innerHTML = '<div class="empty-text">No alerts found.</div>';
+        return;
+      }
+      list.innerHTML = '';
+      alerts.forEach(function(a) { list.appendChild(renderAlertCard(a)); });
+    }).catch(function(err) {
+      list.innerHTML = '<div class="empty-text">Failed to load alerts.</div>';
+      showToast('Error loading alerts: ' + err.message);
+    });
+  }
+
+  function renderAlertCard(a) {
+    var card = document.createElement('div');
+    card.className = 'alert-card urgency-' + escapeHtml(a.urgency);
+    card.setAttribute('data-alert-id', a.alert_id);
+
+    var isOpen = a.status === 'open';
+    var isAcked = a.status === 'acknowledged';
+
+    var html = '<div class="alert-card-body">';
+    html += '<div class="alert-card-top">';
+    html += '<span class="alert-patient-link" data-patient-id="' + escapeHtml(a.patient_id) + '">' + escapeHtml(a.patient_id) + '</span>';
+    html += '<span class="alert-time">' + relativeTime(a.created_at) + '</span>';
+    html += '</div>';
+    html += '<div class="alert-reason">' + escapeHtml(a.reason) + '</div>';
+    html += '<div class="alert-meta">';
+    html += '<span class="urgency-badge ' + escapeHtml(a.urgency) + '">' + escapeHtml(a.urgency) + '</span>';
+    html += '<span class="status-badge ' + escapeHtml(a.status) + '">' + escapeHtml(a.status) + '</span>';
+    if (a.alert_type) html += '<span style="font-size:0.78rem;color:var(--text-muted);">' + escapeHtml(a.alert_type) + '</span>';
+    html += '</div>';
+
+    if (isOpen || isAcked) {
+      html += '<div class="alert-actions">';
+      if (isOpen) {
+        html += '<button class="btn-sm btn-ack" data-action="acknowledge" data-id="' + a.alert_id + '">Acknowledge</button>';
+      }
+      html += '<button class="btn-sm btn-resolve" data-action="show-resolve" data-id="' + a.alert_id + '">Resolve</button>';
+      html += '</div>';
+      html += '<div class="resolve-form" data-resolve-form="' + a.alert_id + '">';
+      html += '<textarea placeholder="Resolution note (optional)..." rows="2"></textarea>';
+      html += '<button class="btn-sm btn-resolve" data-action="resolve" data-id="' + a.alert_id + '">Submit</button>';
+      html += '<button class="btn-sm" data-action="cancel-resolve" data-id="' + a.alert_id + '">Cancel</button>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+    card.innerHTML = html;
+
+    // Event delegation for the card
+    card.addEventListener('click', function(e) {
+      var target = e.target;
+
+      // Patient link
+      if (target.classList.contains('alert-patient-link')) {
+        var pid = target.getAttribute('data-patient-id');
+        openPatientDrawer(pid);
+        return;
+      }
+
+      var action = target.getAttribute('data-action');
+      var alertId = target.getAttribute('data-id');
+
+      if (action === 'acknowledge') {
+        target.disabled = true;
+        target.textContent = '...';
+        api.patch('/clinician/alerts/' + alertId, { status: 'acknowledged' }).then(function() {
+          showToast('Alert acknowledged.', 'success');
+          loadAlerts();
+          loadAlertCounts();
+        }).catch(function(err) {
+          showToast('Failed: ' + err.message);
+          target.disabled = false;
+          target.textContent = 'Acknowledge';
+        });
+      } else if (action === 'show-resolve') {
+        var form = card.querySelector('[data-resolve-form="' + alertId + '"]');
+        if (form) form.classList.add('active');
+      } else if (action === 'cancel-resolve') {
+        var form2 = card.querySelector('[data-resolve-form="' + alertId + '"]');
+        if (form2) form2.classList.remove('active');
+      } else if (action === 'resolve') {
+        var form3 = card.querySelector('[data-resolve-form="' + alertId + '"]');
+        var note = form3 ? form3.querySelector('textarea').value.trim() : '';
+        target.disabled = true;
+        target.textContent = '...';
+        api.patch('/clinician/alerts/' + alertId, { status: 'resolved', resolved_note: note }).then(function() {
+          showToast('Alert resolved.', 'success');
+          loadAlerts();
+          loadAlertCounts();
+        }).catch(function(err) {
+          showToast('Failed: ' + err.message);
+          target.disabled = false;
+          target.textContent = 'Submit';
+        });
+      }
+    });
+
+    return card;
+  }
+
+  /* ════════════════════════════════════════
+     2. Patients Panel
+     ════════════════════════════════════════ */
+
+  var patientPhaseFilter = document.getElementById('patient-phase-filter');
+  patientPhaseFilter.addEventListener('change', loadPatients);
+
+  function loadPatients() {
+    var body = document.getElementById('patients-body');
+    body.innerHTML = '<div class="loading-text">Loading patients...</div>';
+    var params = {};
+    if (patientPhaseFilter.value) params.phase = patientPhaseFilter.value;
+    api.get('/clinician/patients', params).then(function(data) {
+      var patients = data.patients || [];
+      patientsCache = patients;
+      if (patients.length === 0) {
+        body.innerHTML = '<div class="empty-text">No patients found.</div>';
+        return;
+      }
+      body.innerHTML = renderPatientsTable(patients);
+      body.querySelectorAll('.data-table tbody tr').forEach(function(row) {
+        row.addEventListener('click', function() {
+          openPatientDrawer(row.getAttribute('data-patient-id'));
+        });
+      });
+    }).catch(function(err) {
+      body.innerHTML = '<div class="empty-text">Failed to load patients.</div>';
+      showToast('Error loading patients: ' + err.message);
+    });
+  }
+
+  function renderPatientsTable(patients) {
+    var html = '<table class="data-table"><thead><tr>';
+    html += '<th>Patient ID</th><th>Phase</th><th>Last Active</th><th>Adherence</th><th>Pain</th><th>Goals</th><th>Alerts</th>';
+    html += '</tr></thead><tbody>';
+    patients.forEach(function(p) {
+      var phase = p.current_phase || 'pending';
+      var phaseClass = phase.toLowerCase().replace(/[-\s]/g, '_');
+      html += '<tr data-patient-id="' + escapeHtml(p.patient_id) + '">';
+      html += '<td style="font-weight:600;color:var(--navy);">' + escapeHtml(p.patient_id) + '</td>';
+      html += '<td><span class="phase-badge ' + phaseClass + '">' + escapeHtml(phase) + '</span></td>';
+      html += '<td>' + relativeTime(p.last_message_at) + '</td>';
+      html += '<td>' + (p.completion_rate != null ? Math.round(p.completion_rate * 100) + '%' : 'N/A') + '</td>';
+      html += '<td>' + (p.latest_pain_score != null ? p.latest_pain_score + '/10' : 'N/A');
+      if (p.pain_trend) html += ' ' + trendArrow(p.pain_trend);
+      html += '</td>';
+      html += '<td>' + (p.active_goal_count != null ? p.active_goal_count : 'N/A') + '</td>';
+      html += '<td>' + (p.open_alert_count || 0) + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  /* ════════════════════════════════════════
+     3. Adherence Heatmap
+     ════════════════════════════════════════ */
+
+  function loadAdherence() {
+    var body = document.getElementById('adherence-body');
+    body.innerHTML = '<div class="loading-text">Loading adherence data...</div>';
+    api.get('/clinician/adherence-heatmap').then(function(data) {
+      var cells = data.cells || [];
+      if (cells.length === 0) {
+        body.innerHTML = '<div class="empty-text">No adherence data available.</div>';
+        return;
+      }
+      body.innerHTML = '<div class="heatmap-container">' + renderHeatmap(cells) + '</div>';
+    }).catch(function(err) {
+      body.innerHTML = '<div class="empty-text">Failed to load adherence data.</div>';
+      showToast('Error loading adherence: ' + err.message);
+    });
+  }
+
+  function renderHeatmap(cells) {
+    // Group by patient
+    var byPatient = {};
+    var patientOrder = [];
+    cells.forEach(function(c) {
+      if (!byPatient[c.patient_id]) {
+        byPatient[c.patient_id] = {};
+        patientOrder.push(c.patient_id);
+      }
+      byPatient[c.patient_id][c.day] = c;
+    });
+
+    var html = '<div class="heatmap-grid">';
+    // Header row
+    html += '<div class="heatmap-header"></div>';
+    for (var d = 1; d <= 7; d++) {
+      html += '<div class="heatmap-header">Day ' + d + '</div>';
+    }
+    // Patient rows
+    patientOrder.forEach(function(pid) {
+      html += '<div class="heatmap-row-label">' + escapeHtml(pid) + '</div>';
+      for (var d = 1; d <= 7; d++) {
+        var cell = byPatient[pid][d];
+        if (cell) {
+          var rate = cell.rate != null ? cell.rate : (cell.total > 0 ? cell.completed / cell.total : 0);
+          var color = heatmapColor(rate, cell.total);
+          var pct = Math.round(rate * 100);
+          html += '<div class="heatmap-cell" style="background:' + color + ';">';
+          html += pct + '%';
+          html += '<span class="tooltip">' + escapeHtml(pid) + ' &middot; Day ' + d + ' &middot; ' + (cell.completed || 0) + '/' + (cell.total || 0) + '</span>';
+          html += '</div>';
+        } else {
+          html += '<div class="heatmap-cell" style="background:#E0E0E0;color:#999;">';
+          html += '&mdash;';
+          html += '</div>';
+        }
+      }
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function heatmapColor(rate, total) {
+    if (!total || total === 0) return '#E0E0E0';
+    if (rate >= 0.8) return '#2D8A4E';
+    if (rate >= 0.5) return '#E09515';
+    if (rate > 0) return '#E57373';
+    return '#C53030';
+  }
+
+  /* ════════════════════════════════════════
+     4. Outcome Trends
+     ════════════════════════════════════════ */
+
+  var outcomeChart = null;
+  var outcomePatientSelect = document.getElementById('outcome-patient-select');
+
+  outcomePatientSelect.addEventListener('change', function() {
+    var pid = outcomePatientSelect.value;
+    if (!pid) {
+      document.getElementById('outcomes-body').innerHTML = '<div class="empty-text">Select a patient to view outcome trends.</div>';
+      return;
+    }
+    loadOutcomeForPatient(pid);
+  });
+
+  function loadOutcomeForPatient(pid) {
+    var body = document.getElementById('outcomes-body');
+    body.innerHTML = '<div class="loading-text">Loading outcomes...</div>';
+    api.get('/clinician/patients/' + encodeURIComponent(pid)).then(function(detail) {
+      var os = detail.outcome_summary;
+      if (!os || !os.reports || os.reports.length === 0) {
+        body.innerHTML = '<div class="empty-text">No outcome reports for this patient.</div>';
+        return;
+      }
+      renderOutcomeChart(body, os);
+    }).catch(function(err) {
+      body.innerHTML = '<div class="empty-text">Failed to load outcomes.</div>';
+      showToast('Error loading outcomes: ' + err.message);
+    });
+  }
+
+  function renderOutcomeChart(container, os) {
+    var reports = os.reports.slice().sort(function(a, b) {
+      return new Date(a.report_date) - new Date(b.report_date);
+    });
+
+    var labels = reports.map(function(r) {
+      return r.report_date ? new Date(r.report_date).toLocaleDateString() : '';
+    });
+    var painData = reports.map(function(r) { return r.pain_score; });
+    var funcData = reports.map(function(r) { return r.function_score; });
+    var wellData = reports.map(function(r) { return r.wellbeing_score; });
+
+    var html = '<div class="trend-indicators">';
+    html += '<div class="trend-item"><span class="trend-color" style="background:#C53030;"></span> Pain ' + trendArrow(os.pain_trend) + '</div>';
+    html += '<div class="trend-item"><span class="trend-color" style="background:#1A73E8;"></span> Function ' + trendArrow(os.function_trend) + '</div>';
+    html += '<div class="trend-item"><span class="trend-color" style="background:#2D8A4E;"></span> Wellbeing ' + trendArrow(os.wellbeing_trend) + '</div>';
+    html += '</div>';
+    html += '<div class="chart-wrapper"><canvas id="outcome-canvas" height="300"></canvas></div>';
+    container.innerHTML = html;
+
+    var ctx = document.getElementById('outcome-canvas').getContext('2d');
+    if (outcomeChart) outcomeChart.destroy();
+    outcomeChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Pain',
+            data: painData,
+            borderColor: '#C53030',
+            backgroundColor: 'rgba(197,48,48,0.1)',
+            tension: 0.3,
+            fill: false,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          },
+          {
+            label: 'Function',
+            data: funcData,
+            borderColor: '#1A73E8',
+            backgroundColor: 'rgba(26,115,232,0.1)',
+            tension: 0.3,
+            fill: false,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          },
+          {
+            label: 'Wellbeing',
+            data: wellData,
+            borderColor: '#2D8A4E',
+            backgroundColor: 'rgba(45,138,78,0.1)',
+            tension: 0.3,
+            fill: false,
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            min: 0,
+            max: 10,
+            ticks: {
+              stepSize: 1,
+              font: { size: 12 }
+            },
+            grid: { color: 'rgba(0,0,0,0.05)' }
+          },
+          x: {
+            ticks: { font: { size: 11 } },
+            grid: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1B365D',
+            titleFont: { size: 12 },
+            bodyFont: { size: 12 },
+            padding: 10,
+            cornerRadius: 8
+          }
+        },
+        interaction: {
+          mode: 'index',
+          intersect: false
+        }
+      }
+    });
+  }
+
+  /* ════════════════════════════════════════
+     5. Audit Log Panel
+     ════════════════════════════════════════ */
+
+  var auditPatientSelect = document.getElementById('audit-patient-select');
+  var auditEventFilter = document.getElementById('audit-event-filter');
+  var auditOffset = 0;
+  var auditEventTypes = [];
+
+  auditPatientSelect.addEventListener('change', function() {
+    auditOffset = 0;
+    auditEventFilter.value = '';
+    if (auditPatientSelect.value) {
+      loadAuditLog(true);
+    } else {
+      document.getElementById('audit-body').innerHTML = '<div class="empty-text">Select a patient to view their audit log.</div>';
+      auditEventFilter.disabled = true;
+    }
+  });
+
+  auditEventFilter.addEventListener('change', function() {
+    auditOffset = 0;
+    loadAuditLog(true);
+  });
+
+  function loadAuditLog(reset) {
+    var pid = auditPatientSelect.value;
+    if (!pid) return;
+    var body = document.getElementById('audit-body');
+    if (reset) {
+      body.innerHTML = '<div class="loading-text">Loading audit log...</div>';
+      auditOffset = 0;
+    }
+    var params = {
+      limit: 50,
+      offset: auditOffset
+    };
+    if (auditEventFilter.value) params.event_type = auditEventFilter.value;
+
+    api.get('/clinician/patients/' + encodeURIComponent(pid) + '/audit-log', params).then(function(events) {
+      if (!Array.isArray(events)) events = [];
+
+      // Collect event types for filter
+      if (reset) {
+        auditEventTypes = [];
+        events.forEach(function(ev) {
+          if (ev.event_type && auditEventTypes.indexOf(ev.event_type) === -1) {
+            auditEventTypes.push(ev.event_type);
+          }
+        });
+        populateAuditEventFilter();
+      }
+
+      if (reset && events.length === 0) {
+        body.innerHTML = '<div class="empty-text">No audit events found.</div>';
+        return;
+      }
+
+      if (reset) body.innerHTML = '';
+
+      // Remove existing load-more button
+      var existingBtn = body.querySelector('.btn-load-more');
+      if (existingBtn) existingBtn.remove();
+
+      events.forEach(function(ev) { body.appendChild(renderAuditRow(ev)); });
+
+      if (events.length >= 50) {
+        auditOffset += 50;
+        var btn = document.createElement('button');
+        btn.className = 'btn-load-more';
+        btn.textContent = 'Load more';
+        btn.addEventListener('click', function() { loadAuditLog(false); });
+        body.appendChild(btn);
+      }
+
+      auditEventFilter.disabled = false;
+    }).catch(function(err) {
+      if (reset) body.innerHTML = '<div class="empty-text">Failed to load audit log.</div>';
+      showToast('Error loading audit log: ' + err.message);
+    });
+  }
+
+  function populateAuditEventFilter() {
+    var sel = auditEventFilter;
+    var current = sel.value;
+    sel.innerHTML = '<option value="">All Events</option>';
+    auditEventTypes.sort().forEach(function(t) {
+      var opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+  }
+
+  function renderAuditRow(ev) {
+    var row = document.createElement('div');
+    row.className = 'audit-row';
+
+    var payload = '';
+    try {
+      payload = typeof ev.payload === 'string' ? ev.payload : JSON.stringify(ev, null, 2);
+    } catch(e) {
+      payload = String(ev.payload || '');
+    }
+    var summary = payload.length > 100 ? payload.substring(0, 100) + '...' : payload;
+
+    var html = '<div class="audit-row-header">';
+    html += '<span class="audit-row-time">' + relativeTime(ev.created_at || ev.timestamp) + '</span>';
+    html += '<span class="event-type-badge">' + escapeHtml(ev.event_type || 'event') + '</span>';
+    html += '<span class="audit-summary">' + escapeHtml(summary) + '</span>';
+    html += '<span class="audit-expand-icon">&#x25B6;</span>';
+    html += '</div>';
+    html += '<div class="audit-detail"><pre>' + escapeHtml(payload) + '</pre></div>';
+
+    row.innerHTML = html;
+
+    row.querySelector('.audit-row-header').addEventListener('click', function() {
+      row.classList.toggle('expanded');
+    });
+
+    return row;
+  }
+
+  /* ════════════════════════════════════════
+     Patient Select Helpers
+     ════════════════════════════════════════ */
+
+  function ensurePatientSelect(selectId) {
+    var sel = document.getElementById(selectId);
+    if (sel.options.length > 1) return; // Already populated
+    loadPatientsList().then(function(patients) {
+      populatePatientSelect(sel, patients);
+    });
+  }
+
+  function loadPatientsList() {
+    if (patientsCache) return Promise.resolve(patientsCache);
+    return api.get('/clinician/patients').then(function(data) {
+      patientsCache = data.patients || [];
+      return patientsCache;
+    });
+  }
+
+  function populatePatientSelect(sel, patients) {
+    var current = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    patients.forEach(function(p) {
+      var opt = document.createElement('option');
+      opt.value = p.patient_id;
+      opt.textContent = p.patient_id;
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+  }
+
+  /* ════════════════════════════════════════
+     6. Patient Detail Drawer
+     ════════════════════════════════════════ */
+
+  var drawerOverlay = document.getElementById('drawer-overlay');
+  var drawer = document.getElementById('patient-drawer');
+  var drawerClose = document.getElementById('drawer-close');
+  var drawerBody = document.getElementById('drawer-body');
+
+  function openPatientDrawer(pid) {
+    document.getElementById('drawer-patient-id').textContent = pid;
+    document.getElementById('drawer-phase-badge').textContent = '';
+    document.getElementById('drawer-phase-badge').className = 'phase-badge';
+    drawerBody.innerHTML = '<div class="loading-text">Loading patient details...</div>';
+    drawerOverlay.classList.add('active');
+    // Slight delay for the CSS transition
+    requestAnimationFrame(function() {
+      drawer.classList.add('open');
+    });
+
+    api.get('/clinician/patients/' + encodeURIComponent(pid)).then(function(detail) {
+      renderDrawerContent(detail);
+    }).catch(function(err) {
+      drawerBody.innerHTML = '<div class="empty-text">Failed to load patient details.</div>';
+      showToast('Error: ' + err.message);
+    });
+  }
+
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    setTimeout(function() {
+      drawerOverlay.classList.remove('active');
+    }, 300);
+  }
+
+  drawerClose.addEventListener('click', closeDrawer);
+  drawerOverlay.addEventListener('click', closeDrawer);
+
+  function renderDrawerContent(d) {
+    var phase = d.current_phase || 'pending';
+    var phaseClass = phase.toLowerCase().replace(/[-\s]/g, '_');
+    document.getElementById('drawer-phase-badge').textContent = phase;
+    document.getElementById('drawer-phase-badge').className = 'phase-badge ' + phaseClass;
+
+    var html = '';
+
+    // ── Active Goals ──
+    html += '<div class="drawer-section"><h3>Active Goals</h3>';
+    if (d.goals && d.goals.length > 0) {
+      d.goals.forEach(function(g) {
+        html += '<div class="goal-item">';
+        html += '<div class="goal-name">' + escapeHtml(g.goal_text || g.name || g.goal_type || 'Goal') + '</div>';
+        if (g.target_date) html += '<div class="goal-target">Target: ' + escapeHtml(g.target_date) + '</div>';
+        if (g.status) html += '<div class="goal-target">Status: ' + escapeHtml(g.status) + '</div>';
+        html += '</div>';
+      });
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:0.85rem;">No active goals.</div>';
+    }
+    html += '</div>';
+
+    // ── Adherence ──
+    html += '<div class="drawer-section"><h3>Adherence</h3>';
+    if (d.adherence) {
+      var a = d.adherence;
+      var rate = a.completion_rate != null ? a.completion_rate : 0;
+      var pct = Math.round(rate * 100);
+      html += '<div class="adherence-ring-container">';
+      html += renderDonut(pct);
+      html += '<div class="adherence-stats">';
+      html += '<div><strong>' + pct + '%</strong> completion rate</div>';
+      if (a.streak != null) html += '<div>Streak: <strong>' + a.streak + '</strong> days</div>';
+      if (a.total_completed != null) html += '<div>Completed: ' + a.total_completed + '/' + (a.total_due || 0) + '</div>';
+      if (a.days_in_program != null) html += '<div>Day ' + (a.current_day || a.days_in_program) + ' of program</div>';
+      html += '</div></div>';
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:0.85rem;">No adherence data.</div>';
+    }
+    html += '</div>';
+
+    // ── Outcome Summary ──
+    html += '<div class="drawer-section"><h3>Outcome Summary</h3>';
+    if (d.outcome_summary && d.outcome_summary.latest) {
+      var lat = d.outcome_summary.latest;
+      var os = d.outcome_summary;
+      html += '<div class="outcome-scores">';
+      html += '<div class="outcome-score-card"><div class="score-label">Pain</div><div class="score-value">' + (lat.pain_score != null ? lat.pain_score : 'N/A') + '</div><div>' + trendArrow(os.pain_trend) + '</div></div>';
+      html += '<div class="outcome-score-card"><div class="score-label">Function</div><div class="score-value">' + (lat.function_score != null ? lat.function_score : 'N/A') + '</div><div>' + trendArrow(os.function_trend) + '</div></div>';
+      html += '<div class="outcome-score-card"><div class="score-label">Wellbeing</div><div class="score-value">' + (lat.wellbeing_score != null ? lat.wellbeing_score : 'N/A') + '</div><div>' + trendArrow(os.wellbeing_trend) + '</div></div>';
+      html += '</div>';
+      if (os.report_count) html += '<div style="margin-top:8px;font-size:0.82rem;color:var(--text-muted);">' + os.report_count + ' report(s)</div>';
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:0.85rem;">No outcome data.</div>';
+    }
+    html += '</div>';
+
+    // ── Open Alerts ──
+    html += '<div class="drawer-section"><h3>Open Alerts</h3>';
+    if (d.open_alerts && d.open_alerts.length > 0) {
+      html += '<div style="font-size:0.85rem;margin-bottom:8px;font-weight:600;">' + d.open_alerts.length + ' open alert(s)</div>';
+      d.open_alerts.forEach(function(al) {
+        html += '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:0.85rem;">';
+        html += '<span class="urgency-badge ' + escapeHtml(al.urgency) + '">' + escapeHtml(al.urgency) + '</span> ';
+        html += escapeHtml(al.reason || al.alert_type);
+        html += '</div>';
+      });
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:0.85rem;">No open alerts.</div>';
+    }
+    html += '</div>';
+
+    // ── Insights ──
+    if (d.insights && d.insights.length > 0) {
+      html += '<div class="drawer-section"><h3>Insights</h3>';
+      d.insights.forEach(function(ins) {
+        html += '<div class="insight-item">';
+        if (ins.category) html += '<span class="insight-badge">' + escapeHtml(ins.category) + '</span>';
+        html += '<span>' + escapeHtml(ins.content || ins.text || JSON.stringify(ins)) + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // ── Difficulty Summary ──
+    if (d.difficulty_summary) {
+      html += '<div class="drawer-section"><h3>Difficulty Summary</h3>';
+      html += '<div style="font-size:0.85rem;line-height:1.6;">';
+      if (typeof d.difficulty_summary === 'string') {
+        html += escapeHtml(d.difficulty_summary);
+      } else {
+        html += '<pre style="font-size:0.78rem;background:var(--bg);padding:8px;border-radius:6px;white-space:pre-wrap;">' + escapeHtml(JSON.stringify(d.difficulty_summary, null, 2)) + '</pre>';
+      }
+      html += '</div></div>';
+    }
+
+    // ── Recent Events ──
+    html += '<div class="drawer-section"><h3>Recent Events</h3>';
+    if (d.recent_audit_events && d.recent_audit_events.length > 0) {
+      d.recent_audit_events.slice(0, 5).forEach(function(ev) {
+        html += '<div class="drawer-event-item">';
+        html += '<div class="drawer-event-time">' + relativeTime(ev.created_at || ev.timestamp) + '</div>';
+        html += '<div class="drawer-event-type">' + escapeHtml(ev.event_type || 'Event') + '</div>';
+        html += '</div>';
+      });
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:0.85rem;">No recent events.</div>';
+    }
+    html += '</div>';
+
+    drawerBody.innerHTML = html;
+  }
+
+  function renderDonut(pct) {
+    // SVG donut
+    var radius = 30;
+    var circumference = 2 * Math.PI * radius;
+    var offset = circumference - (pct / 100) * circumference;
+    var color = pct >= 80 ? 'var(--success)' : (pct >= 50 ? '#E09515' : 'var(--error)');
+
+    var svg = '<svg class="adherence-ring" viewBox="0 0 80 80">';
+    svg += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="#E8E5DE" stroke-width="8"/>';
+    svg += '<circle cx="40" cy="40" r="' + radius + '" fill="none" stroke="' + color + '" stroke-width="8" ';
+    svg += 'stroke-dasharray="' + circumference + '" stroke-dashoffset="' + offset + '" ';
+    svg += 'stroke-linecap="round" transform="rotate(-90 40 40)"/>';
+    svg += '<text x="40" y="40" text-anchor="middle" dominant-baseline="central" ';
+    svg += 'font-size="14" font-weight="700" fill="var(--navy)">' + pct + '%</text>';
+    svg += '</svg>';
+    return svg;
+  }
+
+})();
+</script>
+</body>
+</html>

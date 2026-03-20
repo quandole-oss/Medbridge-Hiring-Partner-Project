@@ -222,3 +222,105 @@ class PathwayAdvanceResponse(BaseModel):
     advanced: bool
     new_week: int
     reason: str
+
+
+# ── Clinician Dashboard ─────────────────────────────────────────────────────
+
+
+class AlertResponse(BaseModel):
+    alert_id: int
+    patient_id: str
+    alert_type: str
+    urgency: str
+    reason: str
+    status: str
+    context: Optional[dict] = None
+    created_at: str
+    acknowledged_at: Optional[str] = None
+    resolved_at: Optional[str] = None
+    resolved_note: Optional[str] = None
+
+
+class UpdateAlertRequest(BaseModel):
+    status: str  # "acknowledged" | "resolved" | "dismissed"
+    resolved_note: Optional[str] = None
+
+
+class AlertCountResponse(BaseModel):
+    total: int
+    critical: int
+    high: int
+    low: int
+
+
+class PatientOverviewItem(BaseModel):
+    patient_id: str
+    current_phase: str
+    enrollment_date: Optional[str] = None
+    last_message_at: Optional[str] = None
+    days_since_last_message: Optional[int] = None
+    open_alert_count: int = 0
+    completion_rate: float = 0.0
+    latest_pain_score: Optional[int] = None
+    pain_trend: str = "stable"
+    active_goal_count: int = 0
+
+
+class PatientOverviewResponse(BaseModel):
+    patients: List[PatientOverviewItem]
+    total: int
+
+
+class AuditEventResponse(BaseModel):
+    log_id: int
+    event_type: str
+    payload: Optional[dict] = None
+    timestamp: str
+
+
+class PatientInsightResponse(BaseModel):
+    category: str
+    content: str
+    confidence: float
+    times_reinforced: int
+
+
+class PatientDetailResponse(BaseModel):
+    patient_id: str
+    current_phase: str
+    enrollment_date: Optional[str] = None
+    last_message_at: Optional[str] = None
+    goals: List[GoalResponse] = []
+    adherence: AdherenceResponse
+    outcome_summary: OutcomeSummaryResponse
+    open_alerts: List[AlertResponse] = []
+    recent_audit_events: List[AuditEventResponse] = []
+    difficulty_summary: dict = {}
+    insights: List[PatientInsightResponse] = []
+
+
+class AdherenceHeatmapCell(BaseModel):
+    patient_id: str
+    day: int
+    completed: int
+    total: int
+    rate: float
+
+
+class AdherenceHeatmapResponse(BaseModel):
+    cells: List[AdherenceHeatmapCell]
+
+
+class PatientOutcomeTrend(BaseModel):
+    patient_id: str
+    pain_trend: str
+    function_trend: str
+    wellbeing_trend: str
+    latest_pain: Optional[int] = None
+    latest_function: Optional[int] = None
+    latest_wellbeing: Optional[int] = None
+    report_count: int
+
+
+class OutcomeTrendsResponse(BaseModel):
+    trends: List[PatientOutcomeTrend]

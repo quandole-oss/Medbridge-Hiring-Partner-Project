@@ -7,11 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.clinician_routes import clinician_router
 from app.api.routes import router
 from app.config import settings
 from sqlalchemy import select, update
 
-from app.db.seed import seed_demo_patient, seed_education_content
+from app.db.seed import seed_demo_clinician, seed_demo_patient, seed_education_content
 from app.db.session import get_db_session, init_db
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -43,6 +44,7 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized")
     async for session in get_db_session():
         await seed_demo_patient(session)
+        await seed_demo_clinician(session)
         await seed_education_content(session)
         # Deactivate any "None"/"null" goals left by LLM
         await _cleanup_invalid_goals(session)
@@ -66,12 +68,19 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(clinician_router)
 
 
 @app.get("/")
 async def root():
     html = (_STATIC_DIR / "index.html").read_text()
     html = html.replace("%%API_KEY%%", settings.API_KEY)
+    return HTMLResponse(html)
+
+
+@app.get("/clinician")
+async def clinician_dashboard():
+    html = (_STATIC_DIR / "clinician.html").read_text()
     return HTMLResponse(html)
 
 

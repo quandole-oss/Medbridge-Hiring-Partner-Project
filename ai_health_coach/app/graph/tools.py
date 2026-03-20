@@ -275,4 +275,31 @@ def get_patient_insights(patient_id: str) -> str:
 @tool(args_schema=AlertClinicianInput)
 def alert_clinician(patient_id: str, reason: str, urgency_level: str) -> str:
     """Alert the patient's clinician. Use for crisis situations or when clinical intervention is needed."""
-    return f"ALERT sent to clinician for patient {patient_id}: [{urgency_level}] {reason}"
+    import asyncio
+    from app.db.session import async_session_factory
+    from app.db.repository import create_clinical_alert, log_audit_event
+
+    alert_type = "crisis" if urgency_level == "CRITICAL" else "disengagement"
+
+    async def _persist():
+        async with async_session_factory() as session:
+            alert = await create_clinical_alert(
+                session, patient_id, alert_type, urgency_level, reason
+            )
+            await log_audit_event(session, patient_id, "clinician_alert_created", {
+                "alert_id": alert.alert_id, "urgency": urgency_level, "reason": reason,
+            })
+            return alert.alert_id
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                alert_id = pool.submit(lambda: asyncio.run(_persist())).result()
+        else:
+            alert_id = loop.run_until_complete(_persist())
+    except RuntimeError:
+        alert_id = asyncio.run(_persist())
+
+    return f"ALERT #{alert_id} sent to clinician for patient {patient_id}: [{urgency_level}] {reason}"

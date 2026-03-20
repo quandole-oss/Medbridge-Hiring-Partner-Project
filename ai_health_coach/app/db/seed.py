@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import (
+    Clinician,
+    ClinicalAlert,
     EducationContent,
     Exercise,
     ExerciseCompletion,
@@ -559,6 +561,64 @@ EDUCATION_ITEMS = [
         "sort_order": 2,
     },
 ]
+
+
+DEMO_CLINICIAN_ID = "demo-clinician"
+
+
+async def seed_demo_clinician(session: AsyncSession) -> None:
+    """Create a demo clinician and sample alerts for showcase purposes."""
+    existing = await session.execute(
+        select(Clinician).where(Clinician.clinician_id == DEMO_CLINICIAN_ID)
+    )
+    if existing.scalar_one_or_none() is not None:
+        return
+
+    clinician = Clinician(
+        clinician_id=DEMO_CLINICIAN_ID,
+        name="Dr. Demo",
+        email="demo@medbridge.example",
+        api_key="demo-clinician-key",
+        is_active=True,
+    )
+    session.add(clinician)
+
+    # Seed demo alerts for the demo patient
+    now = datetime.datetime.now(datetime.timezone.utc)
+    alerts = [
+        ClinicalAlert(
+            patient_id=DEMO_PATIENT_ID,
+            alert_type="crisis",
+            urgency="CRITICAL",
+            reason="Patient expressed feelings of hopelessness and mentioned not wanting to continue treatment.",
+            status="open",
+            context={"conversation_snippet": "I just don't see the point anymore..."},
+            created_at=now - datetime.timedelta(hours=2),
+        ),
+        ClinicalAlert(
+            patient_id=DEMO_PATIENT_ID,
+            alert_type="disengagement",
+            urgency="LOW",
+            reason="Patient has not responded to last 2 check-in messages over 48 hours.",
+            status="open",
+            context={"hours_inactive": 48, "unanswered_count": 2},
+            created_at=now - datetime.timedelta(hours=6),
+        ),
+        ClinicalAlert(
+            patient_id=DEMO_PATIENT_ID,
+            alert_type="safety_violation",
+            urgency="HIGH",
+            reason="Patient reported sharp knee pain (8/10) during wall squats exercise.",
+            status="acknowledged",
+            acknowledged_at=now - datetime.timedelta(hours=1),
+            context={"exercise": "Wall Squats", "pain_score": 8},
+            created_at=now - datetime.timedelta(days=1),
+        ),
+    ]
+    for alert in alerts:
+        session.add(alert)
+
+    await session.commit()
 
 
 async def seed_education_content(session: AsyncSession) -> None:
