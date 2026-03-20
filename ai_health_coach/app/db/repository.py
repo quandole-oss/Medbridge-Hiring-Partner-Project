@@ -328,6 +328,7 @@ async def get_adherence_stats(
     enrollment = patient.enrollment_date
     if enrollment.tzinfo is None:
         enrollment = enrollment.replace(tzinfo=datetime.timezone.utc)
+    enrollment_date_only = enrollment.date() if hasattr(enrollment, 'date') else enrollment
     days_in_program = max((now - enrollment).days + 1, 1)
     current_day = min(days_in_program, 7)
 
@@ -364,7 +365,8 @@ async def get_adherence_stats(
     # Today's stats
     today = now.date()
     today_exercises = await get_patient_exercises(session, patient_id, day=current_day)
-    today_completions = await get_exercise_completions(session, patient_id, today)
+    current_day_date = enrollment_date_only + datetime.timedelta(days=current_day - 1)
+    today_completions = await get_exercise_completions(session, patient_id, current_day_date)
     completed_ids_today = {c.exercise_id for c in today_completions}
     exercises_due_today = len(today_exercises)
     exercises_completed_today = sum(
@@ -375,7 +377,7 @@ async def get_adherence_stats(
     # (today is still in progress so it shouldn't break the streak)
     streak = 0
     for d in range(current_day - 1, 0, -1):
-        check_date = today - datetime.timedelta(days=current_day - d)
+        check_date = enrollment_date_only + datetime.timedelta(days=d - 1)
         day_exercises = await get_patient_exercises(session, patient_id, day=d)
         if not day_exercises:
             break
@@ -399,7 +401,7 @@ async def get_adherence_stats(
     daily_completions = []
     for d in range(1, 8):
         day_exs = await get_patient_exercises(session, patient_id, day=d)
-        check_date = today - datetime.timedelta(days=current_day - d)
+        check_date = enrollment_date_only + datetime.timedelta(days=d - 1)
         if d <= current_day and day_exs:
             day_comps = await get_exercise_completions(
                 session, patient_id, check_date
