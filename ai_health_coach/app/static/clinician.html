@@ -1586,7 +1586,7 @@
       html += '<td style="font-weight:600;color:var(--navy);">' + escapeHtml(p.patient_id) + '</td>';
       html += '<td><span class="phase-badge ' + phaseClass + '">' + escapeHtml(phase) + '</span></td>';
       html += '<td>' + relativeTime(p.last_message_at) + '</td>';
-      html += '<td>' + (p.completion_rate != null ? Math.round(p.completion_rate * 100) + '%' : 'N/A') + '</td>';
+      html += '<td>' + (p.completion_rate != null ? Math.round(p.completion_rate) + '%' : 'N/A') + '</td>';
       html += '<td>' + (p.latest_pain_score != null ? p.latest_pain_score + '/10' : 'N/A');
       if (p.pain_trend) html += ' ' + trendArrow(p.pain_trend);
       html += '</td>';
@@ -1644,7 +1644,7 @@
         if (cell) {
           var rate = cell.rate != null ? cell.rate : (cell.total > 0 ? cell.completed / cell.total : 0);
           var color = heatmapColor(rate, cell.total);
-          var pct = Math.round(rate * 100);
+          var pct = Math.round(rate);
           html += '<div class="heatmap-cell" style="background:' + color + ';">';
           html += pct + '%';
           html += '<span class="tooltip">' + escapeHtml(pid) + ' &middot; Day ' + d + ' &middot; ' + (cell.completed || 0) + '/' + (cell.total || 0) + '</span>';
@@ -2017,7 +2017,7 @@
     if (d.adherence) {
       var a = d.adherence;
       var rate = a.completion_rate != null ? a.completion_rate : 0;
-      var pct = Math.round(rate * 100);
+      var pct = Math.round(rate);
       html += '<div class="adherence-ring-container">';
       html += renderDonut(pct);
       html += '<div class="adherence-stats">';
