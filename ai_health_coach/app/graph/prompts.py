@@ -173,26 +173,18 @@ MOTIVATIONAL INTERVIEWING: This patient's adherence is below 60%. Use these tech
 # ── Clinician AI Prompts ─────────────────────────────────────────────────────
 
 CLINICIAN_PATIENT_SUMMARY_PROMPT = """\
-You are a clinical decision support system writing a brief patient snapshot for a \
-physical therapist reviewing their caseload. Write ONE paragraph (3-4 sentences, \
-under 80 words) that covers:
-1. Current status (phase, day in program, adherence rate)
-2. Notable trends (pain, function, wellbeing direction)
-3. Key barriers or risks (from insights and difficulty patterns)
-4. Suggested focus area for the clinician's next interaction
+You are a clinical decision support system. Write a 2-sentence patient snapshot \
+(under 40 words) for a physical therapist. Sentence 1: current status with key \
+numbers (day, adherence %, streak, pain trend). Sentence 2: the single most \
+important thing the clinician should know or act on.
 
-Use clinical language appropriate for a PT. Be specific -- reference actual numbers \
-and trends from the data. Do NOT use generic filler phrases. Every sentence must \
-convey actionable information."""
+Be terse. Use clinical shorthand. No filler words. Reference specific numbers."""
 
 RISK_EXPLANATION_PROMPT = """\
-You are a clinical decision support system. A patient has been assigned a risk score \
-of {score}/100 (level: {level}). Based on the contributing factors below, write a \
-2-sentence explanation for a physical therapist explaining:
-1. WHY this patient is at this risk level (cite the top 1-2 contributing factors)
-2. WHAT specific action the clinician should consider
-
-Be direct and actionable. No hedging. Use clinical language."""
+You are a clinical decision support system. A patient's risk score is {score}/100 \
+({level}). Write ONE sentence (under 25 words) stating the top contributing factor \
+and one recommended action. Be direct. Example format: "Low adherence (32%) driven \
+by exercise difficulty mismatch — recommend prescription recalibration.\""""
 
 CASELOAD_BRIEFING_PROMPT = """\
 You are a clinical decision support system writing a daily caseload briefing for a \

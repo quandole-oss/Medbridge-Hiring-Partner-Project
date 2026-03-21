@@ -1044,29 +1044,28 @@
     .risk-badge.risk-high { background: #FFE5E5; color: #C53030; }
     .risk-badge.risk-critical { background: #C53030; color: #fff; }
 
-    .ai-summary-box {
-      background: #FAFBFC;
-      border: 1px solid #E5E7EB;
-      border-radius: 8px;
-      padding: 12px 14px;
-      font-size: 0.85rem;
-      line-height: 1.5;
+    .ai-summary-text {
+      font-size: 0.84rem;
+      line-height: 1.45;
       color: var(--text);
       margin-bottom: 8px;
     }
-    .ai-summary-box .risk-bar {
+    .ai-summary-text strong { color: var(--navy); }
+    .ai-risk-bar {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #E5E7EB;
+      align-items: flex-start;
+      gap: 8px;
+      background: #F7F8FA;
+      border-radius: 6px;
+      padding: 8px 10px;
     }
-    .ai-summary-box .risk-explanation {
+    .ai-risk-bar .risk-badge { flex-shrink: 0; margin-top: 1px; }
+    .ai-risk-bar .risk-explanation {
       font-size: 0.8rem;
       color: var(--text-muted);
-      line-height: 1.4;
+      line-height: 1.35;
     }
+    .ai-risk-bar .risk-explanation strong { color: var(--text); }
     .ai-summary-loading {
       color: var(--text-muted);
       font-size: 0.85rem;
@@ -1089,19 +1088,42 @@
       font-weight: 700;
       color: var(--text);
     }
-    .caseload-body-text {
-      font-size: 0.9rem;
-      line-height: 1.6;
+    .caseload-section {
+      background: #fff;
+      border-radius: 8px;
+      border-left: 4px solid #CBD5E0;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+    .caseload-section.priority { border-left-color: #C53030; }
+    .caseload-section.positive { border-left-color: #1B7A3D; }
+    .caseload-section.milestones { border-left-color: #2B6CB0; }
+    .caseload-section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .caseload-section.priority .caseload-section-title { color: #C53030; }
+    .caseload-section.positive .caseload-section-title { color: #1B7A3D; }
+    .caseload-section.milestones .caseload-section-title { color: #2B6CB0; }
+    .caseload-section-body {
+      font-size: 0.85rem;
+      line-height: 1.5;
       color: var(--text);
     }
-    .caseload-body-text strong,
-    .caseload-body-text b { color: var(--navy); }
-    .caseload-body-text ul {
-      margin: 4px 0 12px 0;
-      padding-left: 20px;
+    .caseload-section-body strong,
+    .caseload-section-body b { color: var(--navy); }
+    .caseload-section-body ul {
+      margin: 2px 0 0 0;
+      padding-left: 18px;
     }
-    .caseload-body-text li {
-      margin-bottom: 4px;
+    .caseload-section-body li {
+      margin-bottom: 2px;
+    }
+    .caseload-section-body p {
+      margin: 0 0 4px 0;
     }
   </style>
 </head>
@@ -1494,12 +1516,42 @@
       html += '<div class="meta-item">High Risk: <span class="meta-value">' + data.high_risk_count + '</span></div>';
       if (data.is_cached) html += '<div class="meta-item" style="font-style:italic;">(cached)</div>';
       html += '</div>';
-      // Convert markdown-like formatting to HTML
-      var text = data.briefing || '';
-      text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      text = text.replace(/^- /gm, '&bull; ');
-      text = text.replace(/\n/g, '<br>');
-      html += '<div class="caseload-body-text">' + text + '</div>';
+      // Parse markdown sections into styled cards
+      var raw = (data.briefing || '').replace(/^#[^#].*$/gm, '').trim();
+      var sectionMap = {
+        'priority attention': 'priority',
+        'priority': 'priority',
+        'positive progress': 'positive',
+        'positive': 'positive',
+        'milestones': 'milestones',
+        'milestones & notes': 'milestones',
+        'notes': 'milestones',
+      };
+      var sections = raw.split(/^##\s*/m).filter(function(s) { return s.trim(); });
+      sections.forEach(function(sec) {
+        var lines = sec.split('\n');
+        var heading = (lines.shift() || '').replace(/\*\*/g, '').trim();
+        var cls = 'milestones';
+        var headLower = heading.toLowerCase();
+        for (var key in sectionMap) {
+          if (headLower.indexOf(key) !== -1) { cls = sectionMap[key]; break; }
+        }
+        var body = lines.join('\n').replace(/^---+$/gm, '').trim();
+        body = body.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Convert bullet lines to <ul>
+        body = body.replace(/((?:^[\u2022\-\*]\s+.+\n?)+)/gm, function(block) {
+          var items = block.trim().split('\n').map(function(l) {
+            return '<li>' + l.replace(/^[\u2022\-\*]\s+/, '') + '</li>';
+          }).join('');
+          return '<ul>' + items + '</ul>';
+        });
+        body = body.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>');
+        if (body && !/^</.test(body)) body = '<p>' + body + '</p>';
+        html += '<div class="caseload-section ' + cls + '">';
+        html += '<div class="caseload-section-title">' + escapeHtml(heading) + '</div>';
+        html += '<div class="caseload-section-body">' + body + '</div>';
+        html += '</div>';
+      });
       body.innerHTML = html;
     }).catch(function(err) {
       body.innerHTML = '<div class="empty-text">Failed to load caseload briefing.</div>';
@@ -2107,13 +2159,13 @@
         var el = document.getElementById('drawer-ai-content');
         if (!el) return;
         var riskClass = 'risk-' + (ai.risk_level || 'low');
-        el.innerHTML = '<div class="ai-summary-box">' +
-          '<div>' + escapeHtml(ai.summary) + '</div>' +
-          '<div class="risk-bar">' +
+        var summaryHtml = escapeHtml(ai.summary).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        var explainHtml = escapeHtml(ai.risk_explanation).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        el.innerHTML = '<div class="ai-summary-text">' + summaryHtml + '</div>' +
+          '<div class="ai-risk-bar">' +
             '<span class="risk-badge ' + riskClass + '">' + ai.risk_score + ' ' + (ai.risk_level || '').toUpperCase() + '</span>' +
-            '<span class="risk-explanation">' + escapeHtml(ai.risk_explanation) + '</span>' +
-          '</div>' +
-        '</div>';
+            '<span class="risk-explanation">' + explainHtml + '</span>' +
+          '</div>';
       }).catch(function() {
         var el = document.getElementById('drawer-ai-content');
         if (el) el.innerHTML = '<span class="ai-summary-loading">AI summary unavailable.</span>';
