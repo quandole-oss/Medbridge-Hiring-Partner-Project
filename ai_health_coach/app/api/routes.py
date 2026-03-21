@@ -89,19 +89,31 @@ def _clean_idempotency_cache() -> None:
             break
 
 
-def _calculate_tone(enrollment_date: Optional[datetime.datetime]) -> str:
+def _calculate_tone(
+    enrollment_date: Optional[datetime.datetime],
+    adherence: Optional[dict] = None,
+) -> str:
     if not enrollment_date:
         return "general"
     now = datetime.datetime.now(datetime.timezone.utc)
     if enrollment_date.tzinfo is None:
         enrollment_date = enrollment_date.replace(tzinfo=datetime.timezone.utc)
     days = (now - enrollment_date).days
+    # First-week calendar milestones
     if days == 2:
         return "celebration"
     elif days == 5:
         return "nudge"
     elif days == 7:
         return "check-in"
+    # Data-driven tones after first week
+    if adherence and days > 7:
+        streak = adherence.get("streak", 0)
+        rate = adherence.get("completion_rate", 0)
+        if streak >= 3 or rate >= 80:
+            return "celebration"
+        if rate < 40:
+            return "nudge"
     return "general"
 
 
@@ -167,7 +179,8 @@ async def _run_chat_pipeline(
         current_phase = Phase.RE_ENGAGING
         await update_patient_phase(session, request.patient_id, current_phase)
 
-    tone = _calculate_tone(patient.enrollment_date)
+    adherence = await get_adherence_stats(session, request.patient_id)
+    tone = _calculate_tone(patient.enrollment_date, adherence)
 
     goals = await get_active_goals(session, request.patient_id)
     goal_summary = _format_goal_summary(goals)

@@ -6,7 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+
+- Coach greeting now personalized: references patient's goal, streak, today's exercises, and stored insights instead of generic "Hi there!"
+- Active coaching system prompt includes GREETING BEHAVIOR directive and today's exercise names
+- Tone calculation is data-driven after first week (celebration for 3+ day streaks or 80%+ completion, nudge for <40%)
+- "General" tone updated from passive ("responsive to whatever they need") to proactive ("reference their progress")
+- Onboarding and re-engaging prompts also instruct personalized greeting behavior
+
 ### Added
+
+- `get_todays_exercises` tool in `app/graph/tools.py` — fetches today's exercise names for greeting context
 
 - Gamification / badge & achievement system with 10 badges computed on-the-fly from existing data
 - `app/services/badges.py`: pure `compute_badges()` function with badge catalog and earned/earned_today flags

@@ -136,6 +136,46 @@ def get_program_summary(patient_id: str) -> str:
 
 
 @tool
+def get_todays_exercises(patient_id: str) -> str:
+    """Get the names of today's scheduled exercises for the patient."""
+    import asyncio
+    import datetime
+    from app.db.session import async_session_factory
+    from app.db.repository import get_patient as _get_patient
+    from app.db.repository import get_patient_exercises as _get_exercises
+
+    async def _fetch():
+        async with async_session_factory() as session:
+            patient = await _get_patient(session, patient_id)
+            if not patient or not patient.enrollment_date:
+                return "No exercises scheduled yet."
+            now = datetime.datetime.now(datetime.timezone.utc)
+            enrollment = patient.enrollment_date
+            if enrollment.tzinfo is None:
+                enrollment = enrollment.replace(tzinfo=datetime.timezone.utc)
+            current_day = min(max((now - enrollment).days + 1, 1), 7)
+            week_number = patient.current_week or 1
+            exercises = await _get_exercises(
+                session, patient_id, day=current_day, week_number=week_number
+            )
+            if not exercises:
+                return "Rest day today — no exercises scheduled."
+            names = [e.name for e in exercises]
+            return "Today's exercises ({}): {}".format(len(names), ", ".join(names))
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(lambda: asyncio.run(_fetch())).result()
+        else:
+            return loop.run_until_complete(_fetch())
+    except RuntimeError:
+        return asyncio.run(_fetch())
+
+
+@tool
 def get_adherence_summary(patient_id: str) -> str:
     """Get the patient's exercise adherence and outcome summary including PRO trends."""
     import asyncio
