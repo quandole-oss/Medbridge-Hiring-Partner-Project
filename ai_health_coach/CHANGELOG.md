@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+
+- AI-powered clinician dashboard with three layered features:
+  - **AI Patient Summary**: LLM-generated clinical snapshot per patient (goals, adherence, trends, barriers, suggested focus)
+  - **Risk Scoring**: Deterministic 0-100 risk score from 7 weighted signals (adherence, pain trend, inactivity, difficulty, phase, streak, alerts) with LLM-generated explanation and recommended action
+  - **Caseload Briefing**: Daily AI briefing across entire patient panel — prioritized by risk, with actionable recommendations
+- `app/services/risk_scoring.py` — pure heuristic risk scoring function (no LLM)
+- `app/services/clinician_ai.py` — patient summary + caseload briefing generation with per-day caching
+- `ClinicianPatientSummary` and `CaseloadBriefing` DB models for caching
+- `GET /clinician/patients/{id}/ai-summary` and `GET /clinician/caseload-briefing` endpoints
+- Caseload Briefing panel on clinician dashboard sidebar
+- Risk badges (color-coded score) on patient table rows
+- AI Summary section at top of patient detail drawer with risk score + explanation
+- 16 new tests: 10 risk scoring unit tests + 6 endpoint integration tests (126 total)
+
 ### Changed
 
 - Coach greeting now personalized: references patient's goal, streak, today's exercises, and stored insights instead of generic "Hi there!"

@@ -336,3 +336,26 @@ class PatientOutcomeTrend(BaseModel):
 
 class OutcomeTrendsResponse(BaseModel):
     trends: List[PatientOutcomeTrend]
+
+
+# ── Clinician AI Responses ───────────────────────────────────────────────────
+
+
+class PatientAISummaryResponse(BaseModel):
+    patient_id: str
+    date: str
+    summary: str
+    risk_score: int
+    risk_level: str
+    risk_explanation: str
+    risk_factors: dict
+    is_cached: bool = False
+
+
+class CaseloadBriefingResponse(BaseModel):
+    clinician_id: str
+    date: str
+    briefing: str
+    patient_count: int
+    high_risk_count: int
+    is_cached: bool = False

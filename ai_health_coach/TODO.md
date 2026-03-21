@@ -1,5 +1,17 @@
 # AI Health Coach — TODO
 
+## AI-Powered Clinician Dashboard
+
+- [x] `app/db/models.py` — `ClinicianPatientSummary` + `CaseloadBriefing` cache models
+- [x] `app/db/repository.py` — cache get/save functions for summaries and briefings
+- [x] `app/services/risk_scoring.py` — pure `compute_risk_score()` with 7 weighted signals
+- [x] `app/services/clinician_ai.py` — `generate_patient_summary()` + `generate_caseload_briefing()` with Haiku
+- [x] `app/graph/prompts.py` — 3 clinician AI prompts (summary, risk explanation, caseload)
+- [x] `app/api/schemas.py` — `PatientAISummaryResponse` + `CaseloadBriefingResponse`
+- [x] `app/api/clinician_routes.py` — 2 new endpoints (ai-summary, caseload-briefing)
+- [x] `app/static/clinician.html` — Caseload panel, risk badges on patient table, AI summary in drawer
+- [x] `tests/test_api/test_clinician_ai.py` — 16 tests (risk scoring + endpoints, 126 total)
+
 ## Gamification / Badge & Achievement System
 
 - [x] `app/services/badges.py` — badge catalog + pure `compute_badges()` function

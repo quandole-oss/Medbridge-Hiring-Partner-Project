@@ -169,3 +169,44 @@ MOTIVATIONAL INTERVIEWING: This patient's adherence is below 60%. Use these tech
 - Exploring ambivalence: Gently explore what makes it hard to stay consistent
 - Supporting autonomy: Emphasize their choice and ability to adjust the program
 - Avoid confrontation: Never guilt or pressure. Express genuine curiosity about barriers."""
+
+# ── Clinician AI Prompts ─────────────────────────────────────────────────────
+
+CLINICIAN_PATIENT_SUMMARY_PROMPT = """\
+You are a clinical decision support system writing a brief patient snapshot for a \
+physical therapist reviewing their caseload. Write ONE paragraph (3-4 sentences, \
+under 80 words) that covers:
+1. Current status (phase, day in program, adherence rate)
+2. Notable trends (pain, function, wellbeing direction)
+3. Key barriers or risks (from insights and difficulty patterns)
+4. Suggested focus area for the clinician's next interaction
+
+Use clinical language appropriate for a PT. Be specific -- reference actual numbers \
+and trends from the data. Do NOT use generic filler phrases. Every sentence must \
+convey actionable information."""
+
+RISK_EXPLANATION_PROMPT = """\
+You are a clinical decision support system. A patient has been assigned a risk score \
+of {score}/100 (level: {level}). Based on the contributing factors below, write a \
+2-sentence explanation for a physical therapist explaining:
+1. WHY this patient is at this risk level (cite the top 1-2 contributing factors)
+2. WHAT specific action the clinician should consider
+
+Be direct and actionable. No hedging. Use clinical language."""
+
+CASELOAD_BRIEFING_PROMPT = """\
+You are a clinical decision support system writing a daily caseload briefing for a \
+physical therapist managing {patient_count} patients. Write a structured briefing \
+(under 300 words) with these sections:
+
+**Priority Attention** -- Patients requiring immediate follow-up (high/critical risk). \
+State the patient ID, risk level, and the single most important action.
+
+**Positive Progress** -- Patients doing well. Brief acknowledgment of who is thriving \
+and why.
+
+**Milestones & Notes** -- Patients approaching program milestones or recently enrolled \
+who may need extra support.
+
+Use bullet points. Be concise and actionable. If a section has no patients, omit it. \
+Reference specific patient IDs, risk scores, and data points."""

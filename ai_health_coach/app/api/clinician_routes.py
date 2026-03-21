@@ -12,11 +12,13 @@ from app.api.schemas import (
     AlertCountResponse,
     AlertResponse,
     AuditEventResponse,
+    CaseloadBriefingResponse,
     DailyCompletion,
     GoalResponse,
     OutcomeReportResponse,
     OutcomeSummaryResponse,
     OutcomeTrendsResponse,
+    PatientAISummaryResponse,
     PatientDetailResponse,
     PatientInsightResponse,
     PatientOutcomeTrend,
@@ -322,4 +324,56 @@ async def outcome_trends(
     trends = await get_all_outcome_trends(session)
     return OutcomeTrendsResponse(
         trends=[PatientOutcomeTrend(**t) for t in trends]
+    )
+
+
+# ── AI-Powered Endpoints ────────────────────────────────────────────────────
+
+
+@clinician_router.get(
+    "/patients/{patient_id}/ai-summary",
+    response_model=PatientAISummaryResponse,
+)
+async def patient_ai_summary(
+    patient_id: str,
+    clinician: Clinician = Depends(verify_clinician),
+    session: AsyncSession = Depends(get_db_session),
+):
+    patient = await get_patient(session, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    from app.services.clinician_ai import generate_patient_summary
+
+    result = await generate_patient_summary(session, patient_id)
+    return PatientAISummaryResponse(
+        patient_id=patient_id,
+        date=datetime.date.today().isoformat(),
+        summary=result["summary"],
+        risk_score=result["risk_score"],
+        risk_level=result["risk_level"],
+        risk_explanation=result["risk_explanation"],
+        risk_factors=result["risk_factors"],
+        is_cached=result["is_cached"],
+    )
+
+
+@clinician_router.get(
+    "/caseload-briefing",
+    response_model=CaseloadBriefingResponse,
+)
+async def caseload_briefing(
+    clinician: Clinician = Depends(verify_clinician),
+    session: AsyncSession = Depends(get_db_session),
+):
+    from app.services.clinician_ai import generate_caseload_briefing
+
+    result = await generate_caseload_briefing(session, clinician.clinician_id)
+    return CaseloadBriefingResponse(
+        clinician_id=clinician.clinician_id,
+        date=datetime.date.today().isoformat(),
+        briefing=result["briefing"],
+        patient_count=result["patient_count"],
+        high_risk_count=result["high_risk_count"],
+        is_cached=result["is_cached"],
     )

@@ -1027,6 +1027,82 @@
 
       .drawer { width: 100vw; }
     }
+
+    /* ── AI / Risk Badge Styles ── */
+    .risk-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .risk-badge.risk-low { background: #E6F4EA; color: #1B7A3D; }
+    .risk-badge.risk-medium { background: #FFF3E0; color: #B8860B; }
+    .risk-badge.risk-high { background: #FFE5E5; color: #C53030; }
+    .risk-badge.risk-critical { background: #C53030; color: #fff; }
+
+    .ai-summary-box {
+      background: #FAFBFC;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .ai-summary-box .risk-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #E5E7EB;
+    }
+    .ai-summary-box .risk-explanation {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .ai-summary-loading {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    .caseload-meta {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .caseload-meta .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .caseload-meta .meta-value {
+      font-weight: 700;
+      color: var(--text);
+    }
+    .caseload-body-text {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .caseload-body-text strong,
+    .caseload-body-text b { color: var(--navy); }
+    .caseload-body-text ul {
+      margin: 4px 0 12px 0;
+      padding-left: 20px;
+    }
+    .caseload-body-text li {
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -1063,6 +1139,10 @@
           <span class="nav-label">Alerts</span>
           <span class="nav-badge" id="alert-badge" style="display:none;">0</span>
         </button>
+        <button class="nav-item" data-panel="caseload">
+          <span class="nav-icon">&#x1F4CB;</span>
+          <span class="nav-label">Caseload</span>
+        </button>
         <button class="nav-item" data-panel="patients">
           <span class="nav-icon">&#x1F465;</span>
           <span class="nav-label">Patients</span>
@@ -1090,6 +1170,16 @@
 
     <!-- Main Content -->
     <div class="main-content">
+
+      <!-- ═══ Caseload Briefing Panel ═══ -->
+      <div class="panel" id="panel-caseload">
+        <div class="panel-header">
+          <h1 class="panel-title">Daily Caseload Briefing</h1>
+        </div>
+        <div class="panel-body" id="caseload-body">
+          <div class="empty-text">Loading caseload briefing...</div>
+        </div>
+      </div>
 
       <!-- ═══ Alerts Panel ═══ -->
       <div class="panel active" id="panel-alerts">
@@ -1388,10 +1478,46 @@
 
   function onPanelActivated(panel) {
     if (panel === 'alerts') loadAlerts();
+    else if (panel === 'caseload') loadCaseloadBriefing();
     else if (panel === 'patients') loadPatients();
     else if (panel === 'adherence') loadAdherence();
     else if (panel === 'outcomes') ensurePatientSelect('outcome-patient-select');
     else if (panel === 'audit') ensurePatientSelect('audit-patient-select');
+  }
+
+  function loadCaseloadBriefing() {
+    var body = document.getElementById('caseload-body');
+    body.innerHTML = '<div class="loading-text">Generating caseload briefing...</div>';
+    api.get('/clinician/caseload-briefing').then(function(data) {
+      var html = '<div class="caseload-meta">';
+      html += '<div class="meta-item">Patients: <span class="meta-value">' + data.patient_count + '</span></div>';
+      html += '<div class="meta-item">High Risk: <span class="meta-value">' + data.high_risk_count + '</span></div>';
+      if (data.is_cached) html += '<div class="meta-item" style="font-style:italic;">(cached)</div>';
+      html += '</div>';
+      // Convert markdown-like formatting to HTML
+      var text = data.briefing || '';
+      text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      text = text.replace(/^- /gm, '&bull; ');
+      text = text.replace(/\n/g, '<br>');
+      html += '<div class="caseload-body-text">' + text + '</div>';
+      body.innerHTML = html;
+    }).catch(function(err) {
+      body.innerHTML = '<div class="empty-text">Failed to load caseload briefing.</div>';
+      showToast('Error: ' + err.message);
+    });
+  }
+
+  function loadRiskBadges() {
+    var cells = document.querySelectorAll('.risk-cell[data-risk-pid]');
+    cells.forEach(function(cell) {
+      var pid = cell.getAttribute('data-risk-pid');
+      api.get('/clinician/patients/' + encodeURIComponent(pid) + '/ai-summary').then(function(ai) {
+        var riskClass = 'risk-' + (ai.risk_level || 'low');
+        cell.innerHTML = '<span class="risk-badge ' + riskClass + '">' + ai.risk_score + '</span>';
+      }).catch(function() {
+        cell.innerHTML = '<span style="color:var(--text-muted);">--</span>';
+      });
+    });
   }
 
   /* ════════════════════════════════════════
@@ -1570,6 +1696,7 @@
           openPatientDrawer(row.getAttribute('data-patient-id'));
         });
       });
+      loadRiskBadges();
     }).catch(function(err) {
       body.innerHTML = '<div class="empty-text">Failed to load patients.</div>';
       showToast('Error loading patients: ' + err.message);
@@ -1578,7 +1705,7 @@
 
   function renderPatientsTable(patients) {
     var html = '<table class="data-table"><thead><tr>';
-    html += '<th>Patient ID</th><th>Phase</th><th>Last Active</th><th>Adherence</th><th>Pain</th><th>Goals</th><th>Alerts</th>';
+    html += '<th>Patient ID</th><th>Phase</th><th>Risk</th><th>Last Active</th><th>Adherence</th><th>Pain</th><th>Goals</th><th>Alerts</th>';
     html += '</tr></thead><tbody>';
     patients.forEach(function(p) {
       var phase = p.current_phase || 'pending';
@@ -1586,6 +1713,7 @@
       html += '<tr data-patient-id="' + escapeHtml(p.patient_id) + '">';
       html += '<td style="font-weight:600;color:var(--navy);">' + escapeHtml(p.patient_id) + '</td>';
       html += '<td><span class="phase-badge ' + phaseClass + '">' + escapeHtml(phase) + '</span></td>';
+      html += '<td class="risk-cell" data-risk-pid="' + escapeHtml(p.patient_id) + '"><span class="ai-summary-loading">...</span></td>';
       html += '<td>' + relativeTime(p.last_message_at) + '</td>';
       html += '<td>' + (p.completion_rate != null ? Math.round(p.completion_rate) + '%' : 'N/A') + '</td>';
       html += '<td>' + (p.latest_pain_score != null ? p.latest_pain_score + '/10' : 'N/A');
@@ -1974,6 +2102,22 @@
 
     api.get('/clinician/patients/' + encodeURIComponent(pid)).then(function(detail) {
       renderDrawerContent(detail);
+      // Fetch AI summary in parallel (populates after drawer renders)
+      api.get('/clinician/patients/' + encodeURIComponent(pid) + '/ai-summary').then(function(ai) {
+        var el = document.getElementById('drawer-ai-content');
+        if (!el) return;
+        var riskClass = 'risk-' + (ai.risk_level || 'low');
+        el.innerHTML = '<div class="ai-summary-box">' +
+          '<div>' + escapeHtml(ai.summary) + '</div>' +
+          '<div class="risk-bar">' +
+            '<span class="risk-badge ' + riskClass + '">' + ai.risk_score + ' ' + (ai.risk_level || '').toUpperCase() + '</span>' +
+            '<span class="risk-explanation">' + escapeHtml(ai.risk_explanation) + '</span>' +
+          '</div>' +
+        '</div>';
+      }).catch(function() {
+        var el = document.getElementById('drawer-ai-content');
+        if (el) el.innerHTML = '<span class="ai-summary-loading">AI summary unavailable.</span>';
+      });
     }).catch(function(err) {
       drawerBody.innerHTML = '<div class="empty-text">Failed to load patient details.</div>';
       showToast('Error: ' + err.message);
@@ -1997,6 +2141,11 @@
     document.getElementById('drawer-phase-badge').className = 'phase-badge ' + phaseClass;
 
     var html = '';
+
+    // ── AI Summary (populated async) ──
+    html += '<div class="drawer-section" id="drawer-ai-section"><h3>AI Summary</h3>';
+    html += '<div id="drawer-ai-content"><span class="ai-summary-loading">Generating AI summary...</span></div>';
+    html += '</div>';
 
     // ── Active Goals ──
     html += '<div class="drawer-section"><h3>Active Goals</h3>';

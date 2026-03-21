@@ -848,6 +848,83 @@ async def save_daily_briefing(
     return briefing
 
 
+# ── Clinician AI Summaries ───────────────────────────────────────────────────
+
+
+async def get_patient_summary_cached(
+    session: AsyncSession, patient_id: str, date: datetime.date
+) -> Optional["ClinicianPatientSummary"]:
+    from app.db.models import ClinicianPatientSummary
+    result = await session.execute(
+        select(ClinicianPatientSummary).where(
+            ClinicianPatientSummary.patient_id == patient_id,
+            ClinicianPatientSummary.summary_date == date,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def save_patient_summary(
+    session: AsyncSession,
+    patient_id: str,
+    date: datetime.date,
+    summary_text: str,
+    risk_score: int,
+    risk_level: str,
+    risk_explanation: str,
+    risk_factors: Optional[dict] = None,
+) -> "ClinicianPatientSummary":
+    from app.db.models import ClinicianPatientSummary
+    summary = ClinicianPatientSummary(
+        patient_id=patient_id,
+        summary_date=date,
+        summary_text=summary_text,
+        risk_score=risk_score,
+        risk_level=risk_level,
+        risk_explanation=risk_explanation,
+        risk_factors=risk_factors,
+    )
+    session.add(summary)
+    await session.commit()
+    await session.refresh(summary)
+    return summary
+
+
+async def get_caseload_briefing_cached(
+    session: AsyncSession, clinician_id: str, date: datetime.date
+) -> Optional["CaseloadBriefing"]:
+    from app.db.models import CaseloadBriefing
+    result = await session.execute(
+        select(CaseloadBriefing).where(
+            CaseloadBriefing.clinician_id == clinician_id,
+            CaseloadBriefing.briefing_date == date,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def save_caseload_briefing(
+    session: AsyncSession,
+    clinician_id: str,
+    date: datetime.date,
+    briefing_text: str,
+    patient_count: int,
+    high_risk_count: int,
+) -> "CaseloadBriefing":
+    from app.db.models import CaseloadBriefing
+    briefing = CaseloadBriefing(
+        clinician_id=clinician_id,
+        briefing_date=date,
+        briefing_text=briefing_text,
+        patient_count=patient_count,
+        high_risk_count=high_risk_count,
+    )
+    session.add(briefing)
+    await session.commit()
+    await session.refresh(briefing)
+    return briefing
+
+
 # ── Clinical Alerts ──────────────────────────────────────────────────────────
 
 

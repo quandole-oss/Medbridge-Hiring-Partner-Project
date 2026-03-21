@@ -242,6 +242,54 @@ class DailyBriefing(Base):
     )
 
 
+class ClinicianPatientSummary(Base):
+    __tablename__ = "clinician_patient_summaries"
+    __table_args__ = (
+        UniqueConstraint(
+            "patient_id", "summary_date", name="uq_patient_summary_per_day"
+        ),
+    )
+
+    summary_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    patient_id: Mapped[str] = mapped_column(
+        String, ForeignKey("patients.patient_id")
+    )
+    summary_date: Mapped[datetime.date] = mapped_column(Date)
+    summary_text: Mapped[str] = mapped_column(String)
+    risk_score: Mapped[int] = mapped_column(Integer)
+    risk_level: Mapped[str] = mapped_column(String)
+    risk_explanation: Mapped[str] = mapped_column(String)
+    risk_factors: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+
+class CaseloadBriefing(Base):
+    __tablename__ = "caseload_briefings"
+    __table_args__ = (
+        UniqueConstraint(
+            "clinician_id", "briefing_date", name="uq_caseload_per_day"
+        ),
+    )
+
+    briefing_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    clinician_id: Mapped[str] = mapped_column(
+        String, ForeignKey("clinicians.clinician_id")
+    )
+    briefing_date: Mapped[datetime.date] = mapped_column(Date)
+    briefing_text: Mapped[str] = mapped_column(String)
+    patient_count: Mapped[int] = mapped_column(Integer)
+    high_risk_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+
+
 class Clinician(Base):
     __tablename__ = "clinicians"
 
